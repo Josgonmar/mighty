@@ -47,7 +47,7 @@ MIGHTY::MIGHTY(parameters par) : par_(par)
   planner_params_.Co = par_.planner_Co;                             // for static obstacle avoidance
   planner_params_.Cw = par_.planner_Cw;                             // for dynamic obstacle avoidance
   planner_params_.BIG = 1e8;
-  planner_params_.dc = par_.dc;                                             // descretiation constant
+  planner_params_.dc = par_.dc; // descretiation constant
   planner_params_.init_turn_bf = par_.init_turn_bf;
 
   // Set up the L-BFGS parameters
@@ -309,7 +309,6 @@ void MIGHTY::computeMapSize(const Eigen::Vector3d &min_pos, const Eigen::Vector3
 
   // Compute the base map center as the midpoint between the min and max positions.
   map_center_ = (min_pos + max_pos) / 2.0;
-
 }
 
 // ----------------------------------------------------------------------------
@@ -382,7 +381,7 @@ void MIGHTY::resetData()
   poly_out_whole_.clear();
   poly_out_safe_.clear();
   goal_setpoints_.clear();
-  // pwp_to_share_.clear();
+  pwp_to_share_.clear();
   optimal_yaw_sequence_.clear();
   yaw_control_points_.clear();
   yaw_knots_.clear();
@@ -392,18 +391,18 @@ void MIGHTY::resetData()
 // ----------------------------------------------------------------------------
 
 void MIGHTY::retrieveData(double &final_g,
-                         double &global_planning_time,
-                         double &dgp_static_jps_time,
-                         double &dgp_check_path_time,
-                         double &dgp_dynamic_astar_time,
-                         double &dgp_recover_path_time,
-                         double &cvx_decomp_time,
-                         double &initial_guess_computation_time,
-                         double &local_traj_computatoin_time,
-                         double &safety_check_time,
-                         double &safe_paths_time,
-                         double &yaw_sequence_time,
-                         double &yaw_fitting_time)
+                          double &global_planning_time,
+                          double &dgp_static_jps_time,
+                          double &dgp_check_path_time,
+                          double &dgp_dynamic_astar_time,
+                          double &dgp_recover_path_time,
+                          double &cvx_decomp_time,
+                          double &initial_guess_computation_time,
+                          double &local_traj_computatoin_time,
+                          double &safety_check_time,
+                          double &safe_paths_time,
+                          double &yaw_sequence_time,
+                          double &yaw_fitting_time)
 {
   final_g = final_g_;
   global_planning_time = global_planning_time_;
@@ -699,7 +698,7 @@ bool MIGHTY::planLocalTrajectory(vec_Vecf<3> &global_path)
     whole_traj_solver_ptr_->getGoalSetpoints(goal_setpoints_);
 
     // print out the goal setpoints
-    // whole_traj_solver_ptr_->getPieceWisePol(pwp_to_share_);
+    whole_traj_solver_ptr_->getPieceWisePol(pwp_to_share_);
     whole_traj_solver_ptr_->getControlPoints(cps_); // Bezier control points
 
     // Get goal setpoints for suboptimal solutions for visualization
@@ -734,11 +733,18 @@ bool MIGHTY::planLocalTrajectory(vec_Vecf<3> &global_path)
 
 // ----------------------------------------------------------------------------
 
+void MIGHTY::getPiecewiseQuinticPol(PieceWiseQuinticPol &pwp)
+{
+  pwp = pwp_to_share_;
+}
+
+// ----------------------------------------------------------------------------
+
 bool MIGHTY::generateLocalTrajectory(const state &local_A, double A_time,
-                                    vec_Vec3f &global_path,
-                                    double &initial_guess_computation_time,
-                                    double &local_traj_computation_time,
-                                    std::shared_ptr<lbfgs::SolverLBFGS> &whole_traj_solver_ptr)
+                                     vec_Vec3f &global_path,
+                                     double &initial_guess_computation_time,
+                                     double &local_traj_computation_time,
+                                     std::shared_ptr<lbfgs::SolverLBFGS> &whole_traj_solver_ptr)
 {
 
   if (par_.debug_verbose)
@@ -1167,12 +1173,12 @@ void MIGHTY::addTraj(std::shared_ptr<dynTraj> new_traj, double current_time)
     return;
   }
 
-  // Evaluate once (no copies)
+  // Evaluate once
   Eigen::Vector3d p = new_traj->eval(current_time);
-  if (!checkPointWithinMap(p))
-    return;
-  if ((p - state_.pos).norm() > par_.horizon)
-    return;
+  // if (!checkPointWithinMap(p))
+  //   return;
+  // if ((p - state_.pos).norm() > par_.horizon)
+  //   return;
 
   {
     std::lock_guard<std::mutex> lock(mtx_trajs_);
@@ -1491,17 +1497,13 @@ void MIGHTY::changeDroneStatus(int new_status)
  */
 bool MIGHTY::checkReadyToReplan()
 {
-
-  if (!kdtree_map_initialized_ ||
-      // !kdtree_unk_initialized_ ||
-      !state_initialized_ ||
-      !terminal_goal_initialized_ ||
-      !dgp_manager_.isMapInitialized())
-  {
-    return false;
-  }
-
-  return true;
+  return state_initialized_ &&
+         terminal_goal_initialized_ &&
+         dgp_manager_.isMapInitialized() &&
+         (!par_.use_hardware || (
+              kdtree_map_initialized_
+              // && kdtree_unk_initialized_
+            ));
 }
 
 // ----------------------------------------------------------------------------

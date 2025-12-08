@@ -10,25 +10,97 @@ windows:
       fi
       . "$SETUP_BASH"
     - export ROS_DOMAIN_ID=7
+    
     panes:
       # base station
       - shell_command:
         - source /usr/share/gazebo/setup.sh
-        - ros2 launch mighty base_mighty.launch.py use_dyn_obs:=false use_gazebo_gui:=false use_rviz:=true env:=hard_forest
+        - ros2 launch mighty base_mighty.launch.py use_dyn_obs:=false use_gazebo_gui:=false use_rviz:=false env:=empty
 
-      # ACL mapper
+      # ACL mapper NX01
       - shell_command:
         - sleep 10
-        - ros2 launch global_mapper_ros global_mapper_node.launch.py
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX01
 
-      # onboard agent NX01
+      # onboard agent NX01  (10.0, 0.0)
       - shell_command:
         - sleep 10
-        - ros2 launch mighty onboard_mighty.launch.py x:=0 y:=0 z:=3.0 yaw:=1.57
-      
-      # goal sender
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX01 x:=10.0 y:=0.0 z:=3.0 yaw:=0.0
+
+      # ACL mapper NX02
       - shell_command:
-        - sleep 20
-        - | # Send goal to NX01
-            ros2 topic pub --once /NX01/term_goal geometry_msgs/msg/PoseStamped \
-            '{header: {stamp: {sec: 0, nanosec: 0}, frame_id: "map"}, pose: {position: {x: 305.0, y: 0.0, z: 3.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}'
+        - sleep 10
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX02
+
+      # onboard agent NX02  (7.071, 7.071)
+      - shell_command:
+        - sleep 10
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX02 x:=7.071 y:=7.071 z:=3.0 yaw:=0.0
+
+      # ACL mapper NX03
+      - shell_command:
+        - sleep 10
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX03
+
+      # onboard agent NX03  (0.0, 10.0)
+      - shell_command:
+        - sleep 10
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX03 x:=0.0 y:=10.0 z:=3.0 yaw:=0.0
+
+      # ACL mapper NX04
+      - shell_command:
+        - sleep 10
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX04
+
+      # onboard agent NX04  (-7.071, 7.071)
+      - shell_command:
+        - sleep 10
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX04 x:=-7.071 y:=7.071 z:=3.0 yaw:=0.0
+
+      # ACL mapper NX05
+      - shell_command:
+        - sleep 10
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX05
+
+      # onboard agent NX05  (-10.0, 0.0)
+      - shell_command:
+        - sleep 10
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX05 x:=-10.0 y:=0.0 z:=3.0 yaw:=0.0
+
+      # ACL mapper NX06
+      - shell_command:
+        - sleep 10
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX06
+
+      # onboard agent NX06  (-7.071, -7.071)
+      - shell_command:
+        - sleep 10
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX06 x:=-7.071 y:=-7.071 z:=3.0 yaw:=0.0
+
+      # ACL mapper NX07
+      - shell_command:
+        - sleep 10
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX07
+
+      # onboard agent NX07  (0.0, -10.0)
+      - shell_command:
+        - sleep 10
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX07 x:=0.0 y:=-10.0 z:=3.0 yaw:=0.0
+
+      # ACL mapper NX08
+      - shell_command:
+        - sleep 10
+        - ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX08
+
+      # onboard agent NX08  (7.071, -7.071)
+      - shell_command:
+        - sleep 10
+        - ros2 launch mighty onboard_mighty.launch.py namespace:=NX08 x:=7.071 y:=-7.071 z:=3.0 yaw:=0.0
+
+      # goal monitor (spawns GoalMonitorNode for NX01..NX08)
+      - shell_command:
+        - sleep 40
+        - ros2 launch mighty goal_monitor.launch.py
+
+
+

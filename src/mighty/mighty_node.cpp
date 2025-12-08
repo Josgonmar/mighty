@@ -198,7 +198,6 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("free_start_factor", 1.0);
   this->declare_parameter("use_free_goal", false);
   this->declare_parameter("free_goal_factor", 1.0);
-  this->declare_parameter("num_N", 3);
   this->declare_parameter("max_dist_vertexes", 5.0);
   this->declare_parameter("w_unknown", 1.0);
   this->declare_parameter("w_align", 60.0);
@@ -356,7 +355,6 @@ void MIGHTY_NODE::setParameters()
   par_.free_start_factor = this->get_parameter("free_start_factor").as_double();
   par_.use_free_goal = this->get_parameter("use_free_goal").as_bool();
   par_.free_goal_factor = this->get_parameter("free_goal_factor").as_double();
-  par_.num_N = this->get_parameter("num_N").as_int();
   par_.max_dist_vertexes = this->get_parameter("max_dist_vertexes").as_double();
   par_.w_unknown = this->get_parameter("w_unknown").as_double();
   par_.w_align = this->get_parameter("w_align").as_double();
@@ -527,7 +525,6 @@ void MIGHTY_NODE::printParameters()
   RCLCPP_INFO(this->get_logger(), "Free Start Factor: %f", par_.free_start_factor);
   RCLCPP_INFO(this->get_logger(), "Use Free Goal?: %d", par_.use_free_goal);
   RCLCPP_INFO(this->get_logger(), "Free Goal Factor: %f", par_.free_goal_factor);
-  RCLCPP_INFO(this->get_logger(), "Num N: %d", par_.num_N);
   RCLCPP_INFO(this->get_logger(), "max_dist_vertexes: %f", par_.max_dist_vertexes);
   RCLCPP_INFO(this->get_logger(), "w_unknown: %f", par_.w_unknown);
   RCLCPP_INFO(this->get_logger(), "w_align: %f", par_.w_align);
@@ -752,7 +749,7 @@ void MIGHTY_NODE::replanCallback()
   // Set computation times to zero
   setComputationTimesToZero();
 
-  // Replan (TODO: clean up)
+  // Replan
   auto [replanning_result, dgp_result] = mighty_ptr_->replan(replanning_computation_time_, current_time);
 
   // Get computation time (used to find point A) - note this value is not updated in the replan function
@@ -973,7 +970,7 @@ void MIGHTY_NODE::convertDynTrajMsg2DynTraj(const dynus_interfaces::msg::DynTraj
   // Get pwp
   if (msg.mode == "pwp")
   {
-    traj->pwp = mighty_utils::convertPwpMsg2Pwp(msg.pwp);
+    traj->pwp = mighty_utils::convertPwpMsg2Pwp(msg.quintic_pwp);
     traj->mode = dynTraj::Mode::Piecewise;
   }
 
@@ -1409,6 +1406,10 @@ void MIGHTY_NODE::publishState(const state &data, const rclcpp::Publisher<geomet
 void MIGHTY_NODE::publishOwnTraj()
 {
 
+  // Get the piecewise quintic polynomial trajectory to share
+  mighty_ptr_->getPiecewiseQuinticPol(pwp_to_share_);
+
+  // Create the message
   dynus_interfaces::msg::DynTraj msg;
   msg.header.stamp = this->now();
   msg.header.frame_id = "map";
@@ -1416,7 +1417,8 @@ void MIGHTY_NODE::publishOwnTraj()
   msg.bbox.push_back(par_.drone_bbox[1]);
   msg.bbox.push_back(par_.drone_bbox[2]);
   msg.id = id_;
-  // msg.pwp = mighty_utils::convertPwp2PwpMsg(pwp_to_share_);
+  msg.mode = "pwp";
+  msg.quintic_pwp = mighty_utils::convertPwp2PwpMsg(pwp_to_share_);
   msg.is_agent = true;
 
   // Get the terminal goal

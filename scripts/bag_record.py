@@ -37,7 +37,7 @@ def record_ros2_bag(bag_name, bag_path, agents, topics=None):
         "/term_goal",
         "/traj",
         "/traj_committed_colored",
-        "/mid360_PointCloud2",
+        # "/mid360_PointCloud2",
         "/d435/color/image_raw",
         "/d435/color/image_raw/compressed",
         "/d435/depth/color/points",
@@ -113,26 +113,31 @@ def record_ros2_bag(bag_name, bag_path, agents, topics=None):
 # Main function
 if __name__ == "__main__":
 
-    # Create arguments for record_ros2_bag
     parser = argparse.ArgumentParser(description="Record a ROS2 bag")
     parser.add_argument("--bag_number", type=int, help="Bag number to record")
-    parser.add_argument("--bag_path", type=str, help="Path to save the bag", default="/media/kkondo/T7/dynus/sim/multiagent")
-    parser.add_argument("--agents", nargs="+", help="List of agents to record", default=["PX02"])
+    parser.add_argument(
+        "--bag_path",
+        type=str,
+        help="Path to save the bag",
+        default="/home/kkondo/data/multi_mighty",
+    )
+    parser.add_argument(
+        "--agents",
+        nargs="+",
+        help="List of agents to record",
+        default=['NX01', 'NX02', 'NX03', 'NX04', 'NX05', 'NX06', 'NX07', 'NX08', 'NX09', 'NX10'],
+    )
     args = parser.parse_args()
 
-    # Customize bag name and path as needed
     bag_name = "num_" + str(args.bag_number)
     bag_path = args.bag_path
 
-    # Convert string list (eg. "['NX01', 'NX02']") to list (eg. ['NX01', 'NX02'])
-    if args.agents:
-        args.agents = args.agents[0].replace("[", "").replace("]", "").replace("'", "").split(", ")
+    # NO string conversion needed – args.agents is already a list of strings
+    agents = args.agents
 
     print("Bag name:", bag_name)
     print("Bag path:", bag_path)
-    print("Agents:", args.agents)
-
-    # List of agents
-    agents = args.agents
+    print("Agents:", agents)
 
     record_ros2_bag(bag_name, bag_path, agents)
+

@@ -75,8 +75,8 @@ def generate_launch_description():
                     parameters=[parameters],
                     remappings=[('lidar_cloud_in', lidar_point_could_topic),
                                 ('depth_camera_cloud_in', f'{depth_camera_name}/depth/color/points')],
+                    arguments=['--ros-args', '--log-level', 'error']
                     # prefix='xterm -e gdb -q -ex run --args', # gdb debugging
-                    # arguments=['--ros-args', '--log-level', 'error']
         )
 
         # Robot state publisher node

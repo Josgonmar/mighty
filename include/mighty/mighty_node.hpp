@@ -297,7 +297,7 @@ namespace mighty
         int p_points_id_ = 0;
 
         // Trajectory sharing
-        // PieceWisePol pwp_to_share_; // Piecewise polynomial
+        PieceWiseQuinticPol pwp_to_share_; // Piecewise polynomial
 
         // Flags
         bool state_initialized_ = false;             // State initialized
