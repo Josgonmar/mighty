@@ -15,7 +15,7 @@ windows:
       # base station
       - shell_command:
         - source /usr/share/gazebo/setup.sh
-        - ros2 launch mighty base_mighty.launch.py use_dyn_obs:=false use_gazebo_gui:=false use_rviz:=false env:=empty
+        - ros2 launch mighty base_mighty.launch.py use_dyn_obs:=false use_gazebo_gui:=false use_rviz:=true env:=empty
 
       # ACL mapper NX01
       - shell_command:
