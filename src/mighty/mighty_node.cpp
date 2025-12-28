@@ -50,7 +50,7 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
   this->cb_group_re_7_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   this->cb_group_re_8_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   this->cb_group_re_9_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-  this->cb_group_map_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  this->cb_group_map_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   this->cb_group_replan_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   this->cb_group_goal_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
@@ -142,11 +142,22 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
   // Initialize the initial pose topic name
   initial_pose_topic_ = ns_ + "/init_pose";
 
-  // Synchronize the occupancy grid and unknown grid
-  occup_grid_sub_.subscribe(this, "occupancy_grid", rmw_qos_profile_sensor_data, options_map);
-  unknown_grid_sub_.subscribe(this, "unknown_grid", rmw_qos_profile_sensor_data, options_map);
-  sync_.reset(new Sync(MySyncPolicy(10), occup_grid_sub_, unknown_grid_sub_));
-  sync_->registerCallback(std::bind(&MIGHTY_NODE::mapCallback, this, std::placeholders::_1, std::placeholders::_2));
+  if (par_.sim_env == "fake_sim")
+  {
+    sub_fake_sim_occupancy_map_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("sensor_point_cloud",
+    rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_sensor_data)),
+    std::bind(&MIGHTY_NODE::occupancyMapCallback, this, std::placeholders::_1),
+    options_map);
+
+  }
+  else
+  {
+    // Synchronize the occupancy grid and unknown grid
+    occup_grid_sub_.subscribe(this, "occupancy_grid", rmw_qos_profile_sensor_data, options_map);
+    unknown_grid_sub_.subscribe(this, "unknown_grid", rmw_qos_profile_sensor_data, options_map);
+    sync_.reset(new Sync(MySyncPolicy(10), occup_grid_sub_, unknown_grid_sub_));
+    sync_->registerCallback(std::bind(&MIGHTY_NODE::mapCallback, this, std::placeholders::_1, std::placeholders::_2));
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -167,6 +178,10 @@ MIGHTY_NODE::~MIGHTY_NODE()
  */
 void MIGHTY_NODE::declareParameters()
 {
+
+  // Sim enviroment
+  this->declare_parameter("sim_env", "fake_sim");
+
   // UAV or Ground robot
   this->declare_parameter("vehicle_type", "uav");
   this->declare_parameter("provide_goal_in_global_frame", false);
@@ -324,6 +339,9 @@ void MIGHTY_NODE::declareParameters()
 void MIGHTY_NODE::setParameters()
 {
   // Set the parameters
+
+  // Sim enviroment
+  par_.sim_env = this->get_parameter("sim_env").as_string();
 
   // Vehicle type (UAV, Wheeled Robit, or Quadruped)
   par_.vehicle_type = this->get_parameter("vehicle_type").as_string();
@@ -494,6 +512,9 @@ void MIGHTY_NODE::setParameters()
 void MIGHTY_NODE::printParameters()
 {
   // Print the parameters
+
+  // Sim enviroment
+  RCLCPP_INFO(this->get_logger(), "Sim Enviroment: %s", par_.sim_env.c_str());
 
   // Vehicle type (UAV, Wheeled Robit, or Quadruped)
   RCLCPP_INFO(this->get_logger(), "Vehicle Type: %d", par_.vehicle_type);
@@ -1896,6 +1917,18 @@ void MIGHTY_NODE::mapCallback(
   pcl::fromROSMsg(*unk_msg, *unk_pc);
 
   mighty_ptr_->updateMap(map_pc, unk_pc);
+}
+
+// ----------------------------------------------------------------------------
+
+void MIGHTY_NODE::occupancyMapCallback(
+    const sensor_msgs::msg::PointCloud2::ConstPtr &map_msg)
+{
+  // use PCL’s own Ptr (boost::shared_ptr)
+  pcl::PointCloud<pcl::PointXYZ>::Ptr map_pc(new pcl::PointCloud<pcl::PointXYZ>());
+  pcl::fromROSMsg(*map_msg, *map_pc);
+
+  mighty_ptr_->updateOccupancyMap(map_pc);
 }
 
 // ----------------------------------------------------------------------------

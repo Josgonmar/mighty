@@ -34,6 +34,9 @@ struct polytope
 struct parameters
 {
 
+  // Sim enviroment
+  std::string sim_env;
+
   // UAV or Ground robot
   std::string vehicle_type;
   bool provide_goal_in_global_frame;

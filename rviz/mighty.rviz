@@ -4,12 +4,16 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Common1/TF1
+        - /Common1/TF1/Frames1
         - /NX011/Planning1/NX01 DGP Free Path1/Topic1
         - /NX011/Planning1/NX01 Traj1/Topic1
         - /NX011/Planning1/NX01 Subopt Trajs1/Topic1
         - /NX011/Mapping1/NX01 D435 PointCloud1/Topic1
         - /NX011/Mapping1/NX01 Lidar PointCloud1/Topic1
+        - /NX031/Mapping1/NX03 Sensor PCL1
+        - /NX051/Mapping1/NX05 Sensor PCL1
+        - /NX061/Mapping1/NX06 Sensor PCL1
+        - /NX071/Mapping1/NX07 Sensor PCL1
       Splitter Ratio: 0.5
     Tree Height: 1904
   - Class: rviz_common/Selection
@@ -29,7 +33,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: NX01 ACL Map Occupied
+    SyncSource: Simulation Global Map
 Visualization Manager:
   Class: ""
   Displays:
@@ -58,244 +62,24 @@ Visualization Manager:
           Frame Timeout: 15
           Frames:
             All Enabled: false
-            NX01/NX01_d435_bottom_screw_frame:
-              Value: false
-            NX01/NX01_d435_color_frame:
-              Value: false
-            NX01/NX01_d435_color_optical_frame:
-              Value: false
-            NX01/NX01_d435_depth_frame:
-              Value: false
-            NX01/NX01_d435_depth_optical_frame:
-              Value: false
-            NX01/NX01_d435_left_ir_frame:
-              Value: false
-            NX01/NX01_d435_left_ir_optical_frame:
-              Value: false
-            NX01/NX01_d435_link:
-              Value: false
-            NX01/NX01_d435_right_ir_frame:
-              Value: false
-            NX01/NX01_d435_right_ir_optical_frame:
-              Value: false
-            NX01/NX01_livox:
-              Value: false
             NX01/base_link:
               Value: true
-            NX02/NX02_d435_bottom_screw_frame:
-              Value: false
-            NX02/NX02_d435_color_frame:
-              Value: false
-            NX02/NX02_d435_color_optical_frame:
-              Value: false
-            NX02/NX02_d435_depth_frame:
-              Value: false
-            NX02/NX02_d435_depth_optical_frame:
-              Value: false
-            NX02/NX02_d435_left_ir_frame:
-              Value: false
-            NX02/NX02_d435_left_ir_optical_frame:
-              Value: false
-            NX02/NX02_d435_link:
-              Value: false
-            NX02/NX02_d435_right_ir_frame:
-              Value: false
-            NX02/NX02_d435_right_ir_optical_frame:
-              Value: false
-            NX02/NX02_livox:
-              Value: false
             NX02/base_link:
               Value: true
-            NX03/NX03_d435_bottom_screw_frame:
-              Value: false
-            NX03/NX03_d435_color_frame:
-              Value: false
-            NX03/NX03_d435_color_optical_frame:
-              Value: false
-            NX03/NX03_d435_depth_frame:
-              Value: false
-            NX03/NX03_d435_depth_optical_frame:
-              Value: false
-            NX03/NX03_d435_left_ir_frame:
-              Value: false
-            NX03/NX03_d435_left_ir_optical_frame:
-              Value: false
-            NX03/NX03_d435_link:
-              Value: false
-            NX03/NX03_d435_right_ir_frame:
-              Value: false
-            NX03/NX03_d435_right_ir_optical_frame:
-              Value: false
-            NX03/NX03_livox:
-              Value: false
             NX03/base_link:
               Value: true
-            NX04/NX04_d435_bottom_screw_frame:
-              Value: false
-            NX04/NX04_d435_color_frame:
-              Value: false
-            NX04/NX04_d435_color_optical_frame:
-              Value: false
-            NX04/NX04_d435_depth_frame:
-              Value: false
-            NX04/NX04_d435_depth_optical_frame:
-              Value: false
-            NX04/NX04_d435_left_ir_frame:
-              Value: false
-            NX04/NX04_d435_left_ir_optical_frame:
-              Value: false
-            NX04/NX04_d435_link:
-              Value: false
-            NX04/NX04_d435_right_ir_frame:
-              Value: false
-            NX04/NX04_d435_right_ir_optical_frame:
-              Value: false
-            NX04/NX04_livox:
-              Value: false
             NX04/base_link:
               Value: true
-            NX05/NX05_d435_bottom_screw_frame:
-              Value: false
-            NX05/NX05_d435_color_frame:
-              Value: false
-            NX05/NX05_d435_color_optical_frame:
-              Value: false
-            NX05/NX05_d435_depth_frame:
-              Value: false
-            NX05/NX05_d435_depth_optical_frame:
-              Value: false
-            NX05/NX05_d435_left_ir_frame:
-              Value: false
-            NX05/NX05_d435_left_ir_optical_frame:
-              Value: false
-            NX05/NX05_d435_link:
-              Value: false
-            NX05/NX05_d435_right_ir_frame:
-              Value: false
-            NX05/NX05_d435_right_ir_optical_frame:
-              Value: false
-            NX05/NX05_livox:
-              Value: false
             NX05/base_link:
               Value: true
-            NX06/NX06_d435_bottom_screw_frame:
-              Value: false
-            NX06/NX06_d435_color_frame:
-              Value: false
-            NX06/NX06_d435_color_optical_frame:
-              Value: false
-            NX06/NX06_d435_depth_frame:
-              Value: false
-            NX06/NX06_d435_depth_optical_frame:
-              Value: false
-            NX06/NX06_d435_left_ir_frame:
-              Value: false
-            NX06/NX06_d435_left_ir_optical_frame:
-              Value: false
-            NX06/NX06_d435_link:
-              Value: false
-            NX06/NX06_d435_right_ir_frame:
-              Value: false
-            NX06/NX06_d435_right_ir_optical_frame:
-              Value: false
-            NX06/NX06_livox:
-              Value: false
             NX06/base_link:
               Value: true
-            NX07/NX07_d435_bottom_screw_frame:
-              Value: false
-            NX07/NX07_d435_color_frame:
-              Value: false
-            NX07/NX07_d435_color_optical_frame:
-              Value: false
-            NX07/NX07_d435_depth_frame:
-              Value: false
-            NX07/NX07_d435_depth_optical_frame:
-              Value: false
-            NX07/NX07_d435_left_ir_frame:
-              Value: false
-            NX07/NX07_d435_left_ir_optical_frame:
-              Value: false
-            NX07/NX07_d435_link:
-              Value: false
-            NX07/NX07_d435_right_ir_frame:
-              Value: false
-            NX07/NX07_d435_right_ir_optical_frame:
-              Value: false
-            NX07/NX07_livox:
-              Value: false
             NX07/base_link:
               Value: true
-            NX08/NX08_d435_bottom_screw_frame:
-              Value: false
-            NX08/NX08_d435_color_frame:
-              Value: false
-            NX08/NX08_d435_color_optical_frame:
-              Value: false
-            NX08/NX08_d435_depth_frame:
-              Value: false
-            NX08/NX08_d435_depth_optical_frame:
-              Value: false
-            NX08/NX08_d435_left_ir_frame:
-              Value: false
-            NX08/NX08_d435_left_ir_optical_frame:
-              Value: false
-            NX08/NX08_d435_link:
-              Value: false
-            NX08/NX08_d435_right_ir_frame:
-              Value: false
-            NX08/NX08_d435_right_ir_optical_frame:
-              Value: false
-            NX08/NX08_livox:
-              Value: false
             NX08/base_link:
               Value: true
-            NX09/NX09_d435_bottom_screw_frame:
-              Value: false
-            NX09/NX09_d435_color_frame:
-              Value: false
-            NX09/NX09_d435_color_optical_frame:
-              Value: false
-            NX09/NX09_d435_depth_frame:
-              Value: false
-            NX09/NX09_d435_depth_optical_frame:
-              Value: false
-            NX09/NX09_d435_left_ir_frame:
-              Value: false
-            NX09/NX09_d435_left_ir_optical_frame:
-              Value: false
-            NX09/NX09_d435_link:
-              Value: false
-            NX09/NX09_d435_right_ir_frame:
-              Value: false
-            NX09/NX09_d435_right_ir_optical_frame:
-              Value: false
-            NX09/NX09_livox:
-              Value: false
             NX09/base_link:
               Value: true
-            NX10/NX10_d435_bottom_screw_frame:
-              Value: false
-            NX10/NX10_d435_color_frame:
-              Value: false
-            NX10/NX10_d435_color_optical_frame:
-              Value: false
-            NX10/NX10_d435_depth_frame:
-              Value: false
-            NX10/NX10_d435_depth_optical_frame:
-              Value: false
-            NX10/NX10_d435_left_ir_frame:
-              Value: false
-            NX10/NX10_d435_left_ir_optical_frame:
-              Value: false
-            NX10/NX10_d435_link:
-              Value: false
-            NX10/NX10_d435_right_ir_frame:
-              Value: false
-            NX10/NX10_d435_right_ir_optical_frame:
-              Value: false
-            NX10/NX10_livox:
-              Value: false
             NX10/base_link:
               Value: true
             map:
@@ -308,175 +92,25 @@ Visualization Manager:
           Tree:
             map:
               NX01/base_link:
-                NX01/NX01_d435_bottom_screw_frame:
-                  NX01/NX01_d435_link:
-                    NX01/NX01_d435_depth_frame:
-                      NX01/NX01_d435_color_frame:
-                        NX01/NX01_d435_color_optical_frame:
-                          {}
-                      NX01/NX01_d435_depth_optical_frame:
-                        {}
-                      NX01/NX01_d435_left_ir_frame:
-                        NX01/NX01_d435_left_ir_optical_frame:
-                          {}
-                      NX01/NX01_d435_right_ir_frame:
-                        NX01/NX01_d435_right_ir_optical_frame:
-                          {}
-                NX01/NX01_livox:
-                  {}
+                {}
               NX02/base_link:
-                NX02/NX02_d435_bottom_screw_frame:
-                  NX02/NX02_d435_link:
-                    NX02/NX02_d435_depth_frame:
-                      NX02/NX02_d435_color_frame:
-                        NX02/NX02_d435_color_optical_frame:
-                          {}
-                      NX02/NX02_d435_depth_optical_frame:
-                        {}
-                      NX02/NX02_d435_left_ir_frame:
-                        NX02/NX02_d435_left_ir_optical_frame:
-                          {}
-                      NX02/NX02_d435_right_ir_frame:
-                        NX02/NX02_d435_right_ir_optical_frame:
-                          {}
-                NX02/NX02_livox:
-                  {}
+                {}
               NX03/base_link:
-                NX03/NX03_d435_bottom_screw_frame:
-                  NX03/NX03_d435_link:
-                    NX03/NX03_d435_depth_frame:
-                      NX03/NX03_d435_color_frame:
-                        NX03/NX03_d435_color_optical_frame:
-                          {}
-                      NX03/NX03_d435_depth_optical_frame:
-                        {}
-                      NX03/NX03_d435_left_ir_frame:
-                        NX03/NX03_d435_left_ir_optical_frame:
-                          {}
-                      NX03/NX03_d435_right_ir_frame:
-                        NX03/NX03_d435_right_ir_optical_frame:
-                          {}
-                NX03/NX03_livox:
-                  {}
+                {}
               NX04/base_link:
-                NX04/NX04_d435_bottom_screw_frame:
-                  NX04/NX04_d435_link:
-                    NX04/NX04_d435_depth_frame:
-                      NX04/NX04_d435_color_frame:
-                        NX04/NX04_d435_color_optical_frame:
-                          {}
-                      NX04/NX04_d435_depth_optical_frame:
-                        {}
-                      NX04/NX04_d435_left_ir_frame:
-                        NX04/NX04_d435_left_ir_optical_frame:
-                          {}
-                      NX04/NX04_d435_right_ir_frame:
-                        NX04/NX04_d435_right_ir_optical_frame:
-                          {}
-                NX04/NX04_livox:
-                  {}
+                {}
               NX05/base_link:
-                NX05/NX05_d435_bottom_screw_frame:
-                  NX05/NX05_d435_link:
-                    NX05/NX05_d435_depth_frame:
-                      NX05/NX05_d435_color_frame:
-                        NX05/NX05_d435_color_optical_frame:
-                          {}
-                      NX05/NX05_d435_depth_optical_frame:
-                        {}
-                      NX05/NX05_d435_left_ir_frame:
-                        NX05/NX05_d435_left_ir_optical_frame:
-                          {}
-                      NX05/NX05_d435_right_ir_frame:
-                        NX05/NX05_d435_right_ir_optical_frame:
-                          {}
-                NX05/NX05_livox:
-                  {}
+                {}
               NX06/base_link:
-                NX06/NX06_d435_bottom_screw_frame:
-                  NX06/NX06_d435_link:
-                    NX06/NX06_d435_depth_frame:
-                      NX06/NX06_d435_color_frame:
-                        NX06/NX06_d435_color_optical_frame:
-                          {}
-                      NX06/NX06_d435_depth_optical_frame:
-                        {}
-                      NX06/NX06_d435_left_ir_frame:
-                        NX06/NX06_d435_left_ir_optical_frame:
-                          {}
-                      NX06/NX06_d435_right_ir_frame:
-                        NX06/NX06_d435_right_ir_optical_frame:
-                          {}
-                NX06/NX06_livox:
-                  {}
+                {}
               NX07/base_link:
-                NX07/NX07_d435_bottom_screw_frame:
-                  NX07/NX07_d435_link:
-                    NX07/NX07_d435_depth_frame:
-                      NX07/NX07_d435_color_frame:
-                        NX07/NX07_d435_color_optical_frame:
-                          {}
-                      NX07/NX07_d435_depth_optical_frame:
-                        {}
-                      NX07/NX07_d435_left_ir_frame:
-                        NX07/NX07_d435_left_ir_optical_frame:
-                          {}
-                      NX07/NX07_d435_right_ir_frame:
-                        NX07/NX07_d435_right_ir_optical_frame:
-                          {}
-                NX07/NX07_livox:
-                  {}
+                {}
               NX08/base_link:
-                NX08/NX08_d435_bottom_screw_frame:
-                  NX08/NX08_d435_link:
-                    NX08/NX08_d435_depth_frame:
-                      NX08/NX08_d435_color_frame:
-                        NX08/NX08_d435_color_optical_frame:
-                          {}
-                      NX08/NX08_d435_depth_optical_frame:
-                        {}
-                      NX08/NX08_d435_left_ir_frame:
-                        NX08/NX08_d435_left_ir_optical_frame:
-                          {}
-                      NX08/NX08_d435_right_ir_frame:
-                        NX08/NX08_d435_right_ir_optical_frame:
-                          {}
-                NX08/NX08_livox:
-                  {}
+                {}
               NX09/base_link:
-                NX09/NX09_d435_bottom_screw_frame:
-                  NX09/NX09_d435_link:
-                    NX09/NX09_d435_depth_frame:
-                      NX09/NX09_d435_color_frame:
-                        NX09/NX09_d435_color_optical_frame:
-                          {}
-                      NX09/NX09_d435_depth_optical_frame:
-                        {}
-                      NX09/NX09_d435_left_ir_frame:
-                        NX09/NX09_d435_left_ir_optical_frame:
-                          {}
-                      NX09/NX09_d435_right_ir_frame:
-                        NX09/NX09_d435_right_ir_optical_frame:
-                          {}
-                NX09/NX09_livox:
-                  {}
+                {}
               NX10/base_link:
-                NX10/NX10_d435_bottom_screw_frame:
-                  NX10/NX10_d435_link:
-                    NX10/NX10_d435_depth_frame:
-                      NX10/NX10_d435_color_frame:
-                        NX10/NX10_d435_color_optical_frame:
-                          {}
-                      NX10/NX10_d435_depth_optical_frame:
-                        {}
-                      NX10/NX10_d435_left_ir_frame:
-                        NX10/NX10_d435_left_ir_optical_frame:
-                          {}
-                      NX10/NX10_d435_right_ir_frame:
-                        NX10/NX10_d435_right_ir_optical_frame:
-                          {}
-                NX10/NX10_livox:
-                  {}
+                {}
           Update Interval: 0
           Value: true
         - Class: rviz_default_plugins/Marker
@@ -493,7 +127,7 @@ Visualization Manager:
             Value: /tf_axis
           Value: false
         - Class: rviz_default_plugins/MarkerArray
-          Enabled: true
+          Enabled: false
           Name: Dynamic Obstacles GT
           Namespaces:
             {}
@@ -503,6 +137,40 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /shapes_dynamic_mesh
+          Value: false
+        - Alpha: 0.5
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: -10
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/PointCloud2
+          Color: 153; 193; 241
+          Color Transformer: FlatColor
+          Decay Time: 0
+          Enabled: true
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 4096
+          Min Color: 0; 0; 0
+          Min Intensity: 0
+          Name: Simulation Global Map
+          Position Transformer: XYZ
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.05000000074505806
+          Style: Flat Squares
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /map_generator/global_cloud
+          Use Fixed Frame: true
+          Use rainbow: true
           Value: true
       Enabled: true
       Name: Common
@@ -578,7 +246,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX01 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -589,7 +257,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX01/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -605,7 +273,7 @@ Visualization Manager:
                 Value: /NX01/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX01 Subopt Trajs
               Namespaces:
                 {}
@@ -615,12 +283,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX01/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX01 Actual Traj
               Namespaces:
-                actual_traj_01: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -628,7 +296,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX01/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX01 Cps
@@ -654,7 +322,7 @@ Visualization Manager:
                 Value: /NX01/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX01 P Points
               Namespaces:
                 {}
@@ -664,9 +332,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX01/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX01 Frontiers
               Namespaces:
                 {}
@@ -676,7 +344,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX01/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -695,7 +363,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX01 Point E
               Radius: 0.5
@@ -706,7 +374,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX01/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -1026,12 +694,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 87; 227; 137
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX01 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX01/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX01 Vel Text
               Namespaces:
                 velocity: true
@@ -1074,7 +776,7 @@ Visualization Manager:
               Enabled: true
               Name: NX01 Drone marker
               Namespaces:
-                mesh_/NX01: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -1209,7 +911,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX02 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -1220,7 +922,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX02/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -1236,7 +938,7 @@ Visualization Manager:
                 Value: /NX02/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX02 Subopt Trajs
               Namespaces:
                 {}
@@ -1246,12 +948,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX02/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX02 Actual Traj
               Namespaces:
-                actual_traj_02: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -1259,7 +961,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX02/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX02 Cps
@@ -1285,7 +987,7 @@ Visualization Manager:
                 Value: /NX02/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX02 P Points
               Namespaces:
                 {}
@@ -1295,9 +997,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX02/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX02 Frontiers
               Namespaces:
                 {}
@@ -1307,7 +1009,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX02/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -1326,7 +1028,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX02 Point E
               Radius: 0.5
@@ -1337,7 +1039,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX02/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -1657,12 +1359,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 248; 228; 92
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX02 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX02/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX02 Vel Text
               Namespaces:
                 velocity: true
@@ -1705,7 +1441,7 @@ Visualization Manager:
               Enabled: true
               Name: NX02 Drone marker
               Namespaces:
-                mesh_/NX02: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -1840,7 +1576,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX03 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -1851,7 +1587,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX03/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -1867,7 +1603,7 @@ Visualization Manager:
                 Value: /NX03/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX03 Subopt Trajs
               Namespaces:
                 {}
@@ -1877,12 +1613,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX03/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX03 Actual Traj
               Namespaces:
-                actual_traj_03: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -1890,7 +1626,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX03/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX03 Cps
@@ -1916,7 +1652,7 @@ Visualization Manager:
                 Value: /NX03/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX03 P Points
               Namespaces:
                 {}
@@ -1926,9 +1662,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX03/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX03 Frontiers
               Namespaces:
                 {}
@@ -1938,7 +1674,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX03/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -1957,7 +1693,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX03 Point E
               Radius: 0.5
@@ -1968,7 +1704,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX03/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -2288,12 +2024,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 255; 163; 72
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX03 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX03/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX03 Vel Text
               Namespaces:
                 velocity: true
@@ -2336,7 +2106,7 @@ Visualization Manager:
               Enabled: true
               Name: NX03 Drone marker
               Namespaces:
-                mesh_/NX03: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -2471,7 +2241,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX04 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -2482,7 +2252,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX04/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -2498,7 +2268,7 @@ Visualization Manager:
                 Value: /NX04/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX04 Subopt Trajs
               Namespaces:
                 {}
@@ -2508,12 +2278,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX04/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX04 Actual Traj
               Namespaces:
-                actual_traj_04: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -2521,7 +2291,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX04/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX04 Cps
@@ -2547,7 +2317,7 @@ Visualization Manager:
                 Value: /NX04/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX04 P Points
               Namespaces:
                 {}
@@ -2557,9 +2327,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX04/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX04 Frontiers
               Namespaces:
                 {}
@@ -2569,7 +2339,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX04/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -2588,7 +2358,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX04 Point E
               Radius: 0.5
@@ -2599,7 +2369,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX04/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -2919,12 +2689,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 237; 51; 59
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX04 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX04/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX04 Vel Text
               Namespaces:
                 velocity: true
@@ -2967,7 +2771,7 @@ Visualization Manager:
               Enabled: true
               Name: NX04 Drone marker
               Namespaces:
-                mesh_/NX04: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -3102,7 +2906,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX05 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -3113,7 +2917,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX05/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -3129,7 +2933,7 @@ Visualization Manager:
                 Value: /NX05/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX05 Subopt Trajs
               Namespaces:
                 {}
@@ -3139,12 +2943,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX05/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX05 Actual Traj
               Namespaces:
-                actual_traj_05: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -3152,7 +2956,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX05/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX05 Cps
@@ -3178,7 +2982,7 @@ Visualization Manager:
                 Value: /NX05/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX05 P Points
               Namespaces:
                 {}
@@ -3188,9 +2992,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX05/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX05 Frontiers
               Namespaces:
                 {}
@@ -3200,7 +3004,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX05/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -3219,7 +3023,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX05 Point E
               Radius: 0.5
@@ -3230,7 +3034,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX05/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -3550,12 +3354,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 192; 97; 203
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX05 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX05/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX05 Vel Text
               Namespaces:
                 velocity: true
@@ -3598,7 +3436,7 @@ Visualization Manager:
               Enabled: true
               Name: NX05 Drone marker
               Namespaces:
-                mesh_/NX05: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -3733,7 +3571,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX06 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -3744,7 +3582,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX06/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -3760,7 +3598,7 @@ Visualization Manager:
                 Value: /NX06/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX06 Subopt Trajs
               Namespaces:
                 {}
@@ -3770,12 +3608,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX06/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX06 Actual Traj
               Namespaces:
-                actual_traj_06: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -3783,7 +3621,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX06/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX06 Cps
@@ -3809,7 +3647,7 @@ Visualization Manager:
                 Value: /NX06/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX06 P Points
               Namespaces:
                 {}
@@ -3819,9 +3657,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX06/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX06 Frontiers
               Namespaces:
                 {}
@@ -3831,7 +3669,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX06/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -3850,7 +3688,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX06 Point E
               Radius: 0.5
@@ -3861,7 +3699,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX06/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -4181,12 +4019,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 181; 131; 90
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX06 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX06/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX06 Vel Text
               Namespaces:
                 velocity: true
@@ -4229,7 +4101,7 @@ Visualization Manager:
               Enabled: true
               Name: NX06 Drone marker
               Namespaces:
-                mesh_/NX06: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -4364,7 +4236,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX07 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -4375,7 +4247,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX07/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -4391,7 +4263,7 @@ Visualization Manager:
                 Value: /NX07/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX07 Subopt Trajs
               Namespaces:
                 {}
@@ -4401,12 +4273,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX07/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX07 Actual Traj
               Namespaces:
-                actual_traj_07: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -4414,7 +4286,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX07/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX07 Cps
@@ -4440,7 +4312,7 @@ Visualization Manager:
                 Value: /NX07/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX07 P Points
               Namespaces:
                 {}
@@ -4450,9 +4322,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX07/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX07 Frontiers
               Namespaces:
                 {}
@@ -4462,7 +4334,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX07/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -4481,7 +4353,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX07 Point E
               Radius: 0.5
@@ -4492,7 +4364,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX07/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -4812,12 +4684,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 246; 245; 244
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX07 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX07/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX07 Vel Text
               Namespaces:
                 velocity: true
@@ -4860,7 +4766,7 @@ Visualization Manager:
               Enabled: true
               Name: NX07 Drone marker
               Namespaces:
-                mesh_/NX07: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -4995,7 +4901,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX08 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -5006,7 +4912,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX08/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -5022,7 +4928,7 @@ Visualization Manager:
                 Value: /NX08/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX08 Subopt Trajs
               Namespaces:
                 {}
@@ -5032,12 +4938,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX08/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX08 Actual Traj
               Namespaces:
-                actual_traj_08: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -5045,7 +4951,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX08/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX08 Cps
@@ -5071,7 +4977,7 @@ Visualization Manager:
                 Value: /NX08/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX08 P Points
               Namespaces:
                 {}
@@ -5081,9 +4987,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX08/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX08 Frontiers
               Namespaces:
                 {}
@@ -5093,7 +4999,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX08/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -5112,7 +5018,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX08 Point E
               Radius: 0.5
@@ -5123,7 +5029,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX08/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -5443,12 +5349,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 94; 92; 100
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX08 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX08/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX08 Vel Text
               Namespaces:
                 velocity: true
@@ -5491,7 +5431,7 @@ Visualization Manager:
               Enabled: true
               Name: NX08 Drone marker
               Namespaces:
-                mesh_/NX08: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -5626,7 +5566,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX09 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -5637,7 +5577,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX09/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -5653,7 +5593,7 @@ Visualization Manager:
                 Value: /NX09/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX09 Subopt Trajs
               Namespaces:
                 {}
@@ -5663,12 +5603,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX09/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX09 Actual Traj
               Namespaces:
-                actual_traj_09: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -5676,7 +5616,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX09/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX09 Cps
@@ -5702,7 +5642,7 @@ Visualization Manager:
                 Value: /NX09/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX09 P Points
               Namespaces:
                 {}
@@ -5712,9 +5652,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX09/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX09 Frontiers
               Namespaces:
                 {}
@@ -5724,7 +5664,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX09/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -5743,7 +5683,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX09 Point E
               Radius: 0.5
@@ -5754,7 +5694,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX09/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -6074,12 +6014,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 255; 154; 140
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX09 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX09/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX09 Vel Text
               Namespaces:
                 velocity: true
@@ -6122,7 +6096,7 @@ Visualization Manager:
               Enabled: true
               Name: NX09 Drone marker
               Namespaces:
-                mesh_/NX09: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -6257,7 +6231,7 @@ Visualization Manager:
             - Alpha: 0.20000000298023224
               BoundColor: 0; 255; 0
               Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: true
+              Enabled: false
               MeshColor: 143; 240; 164
               Name: NX10 Poly for Safe Trajs
               Scale: 0.009999999776482582
@@ -6268,7 +6242,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX10/poly_safe
-              Value: true
+              Value: false
               VsColor: 0; 255; 0
               VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
@@ -6284,7 +6258,7 @@ Visualization Manager:
                 Value: /NX10/traj_committed_colored
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX10 Subopt Trajs
               Namespaces:
                 {}
@@ -6294,12 +6268,12 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX10/traj_subopt_colored
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX10 Actual Traj
               Namespaces:
-                actual_traj_10: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -6307,7 +6281,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX10/actual_traj
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: NX10 Cps
@@ -6333,7 +6307,7 @@ Visualization Manager:
                 Value: /NX10/static_push_points
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX10 P Points
               Namespaces:
                 {}
@@ -6343,9 +6317,9 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX10/p_points
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: NX10 Frontiers
               Namespaces:
                 {}
@@ -6355,7 +6329,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX10/frontiers
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 28; 113; 216
@@ -6374,7 +6348,7 @@ Visualization Manager:
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 38; 162; 105
-              Enabled: true
+              Enabled: false
               History Length: 1
               Name: NX10 Point E
               Radius: 0.5
@@ -6385,7 +6359,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /NX10/point_E
-              Value: true
+              Value: false
             - Alpha: 1
               Class: rviz_default_plugins/PointStamped
               Color: 204; 41; 204
@@ -6705,12 +6679,46 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: true
               Value: false
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 0; 170; 255
+              Color Transformer: FlatColor
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: 4096
+              Min Color: 0; 0; 0
+              Min Intensity: 0
+              Name: NX10 Sensor PCL
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: NX10/sensor_point_cloud
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Mapping
         - Class: rviz_common/Group
           Displays:
             - Class: rviz_default_plugins/Marker
-              Enabled: true
+              Enabled: false
               Name: NX10 Vel Text
               Namespaces:
                 velocity: true
@@ -6753,7 +6761,7 @@ Visualization Manager:
               Enabled: true
               Name: NX10 Drone marker
               Namespaces:
-                mesh_/NX10: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -6862,25 +6870,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 45.568668365478516
+      Distance: 43.555477142333984
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.3890738487243652
-        Y: 2.0713043212890625
-        Z: 4.75657320022583
+        X: 0.706261932849884
+        Y: -0.283535361289978
+        Z: 2.1163532733917236
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1197961568832397
+      Pitch: 1.3497966527938843
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 4.709784984588623
+      Yaw: 3.1397600173950195
     Saved: ~
 Window Geometry:
   Displays:

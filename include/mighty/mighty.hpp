@@ -129,6 +129,7 @@ public:
   void applyInitiPoseTransform(PieceWisePol &pwp);
   void applyInitiPoseInverseTransform(PieceWisePol &pwp);
   void updateMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_map, const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_unk);
+  void updateOccupancyMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_map);
   void getPiecewiseQuinticPol(PieceWiseQuinticPol &pwp);
   
 private:

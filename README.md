@@ -127,6 +127,36 @@ MIGHTY has been tested on both Docker and native installations on Ubuntu 22.04 w
 ### Notes
 
 <details>
+  <summary><b>MIGHTY with Gazebo (and hence ACL mapper) </b></summary>
+  Make sure `sim_env` parameter in mighty.yaml is set to `gazebo` and run the following three commands:
+  - ```bash
+   colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && . install/setup.bash && ros2 launch mighty base_mighty.launch.py use_dyn_obs:=false use_gazebo_gui:=false use_rviz:=true env:=hard_forest
+    ```
+  - ```bash
+   . install/setup.bash && ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX01 depth_pointcloud_topic:=mid360_PointCloud2
+    ```
+  - ```bash
+   . install/setup.bash && ros2 launch mighty onboard_mighty.launch.py namespace:=NX01 x:=0.0 y:=0.0 z:=1.0 yaw:=0.0
+    ```
+</details>
+
+<details>
+  <summary><b>Multi-MIGHTY with Fake Sensing</b></summary>
+  Make sure `sim_env` parameter in mighty.yaml is set to `fake_sim` and run:
+  - ```bash
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && ./src/mighty/launch/run_mighty_sim.sh /home/kkondo/code/mighty_ws/install/setup.bash
+    ```
+</details>
+
+<details>
+  <summary><b>Bag Recording</b></summary>
+
+  - ```bash
+    python3 src/mighty/scripts/bag_record.py --bag_number 3
+    ```
+</details>
+
+<details>
   <summary><b>Goal Command Example</b></summary>
 
   - ```bash

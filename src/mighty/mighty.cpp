@@ -660,7 +660,7 @@ bool MIGHTY::planLocalTrajectory(vec_Vecf<3> &global_path)
   // If the global path's size is < 3 after trimming, we cannot proceed
   if (global_path.empty() || global_path.size() < 3)
   {
-    std::cout << bold << red << "Global path's size is < 3 after trimming" << reset << std::endl;
+    // std::cout << bold << red << "Global path's size is < 3 after trimming" << reset << std::endl;
     replanning_failure_count_++;
     return false;
   }
@@ -1500,10 +1500,14 @@ bool MIGHTY::checkReadyToReplan()
   return state_initialized_ &&
          terminal_goal_initialized_ &&
          dgp_manager_.isMapInitialized() &&
-         (!par_.use_hardware || (
-              kdtree_map_initialized_
-              // && kdtree_unk_initialized_
-            ));
+         (!par_.use_hardware || (kdtree_map_initialized_
+                                 // && kdtree_unk_initialized_
+                                 ));
+
+  // if (!is_ready) printf("\033[1;31mNot ready to replan: state_initialized_=%d, terminal_goal_initialized_=%d, map_initialized_=%d, kdtree_map_initialized_=%d\033[0m\n",
+  //                            state_initialized_, terminal_goal_initialized_,
+  //                            dgp_manager_.isMapInitialized(),
+  //                            kdtree_map_initialized_ /*, kdtree_unk_initialized_*/);
 }
 
 // ----------------------------------------------------------------------------
@@ -1543,7 +1547,7 @@ void MIGHTY::updateMap(
   {
     RCLCPP_WARN(
         rclcpp::get_logger("mighty"),
-        "updateMap: member pclptr_map_ was null or empty; skipping KD‐tree update");
+        "updateMap: member pclptr_map_ was null or empty; skipping KD-tree update");
   }
 
   // 4) Unknown‐space KD‐tree
@@ -1561,6 +1565,42 @@ void MIGHTY::updateMap(
     RCLCPP_WARN(
         rclcpp::get_logger("mighty"),
         "updateMap: member pclptr_unk_ was null or empty; skipping KD‐tree update");
+  }
+}
+
+// ----------------------------------------------------------------------------
+
+void MIGHTY::updateOccupancyMap(
+    const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_map)
+{
+  // 1) Atomically store the incoming clouds
+  {
+    std::lock_guard<std::mutex> lk(mtx_kdtree_map_);
+    pclptr_map_ = pclptr_map;
+  }
+
+  // Update the map size
+  state local_state, local_G;
+  getState(local_state);
+  getG(local_G);
+  computeMapSize(local_state.pos, local_G.pos);
+
+  // 2) map update (unlocked)
+  dgp_manager_.updateMap(wdx_, wdy_, wdz_, map_center_, pclptr_map_);
+
+  // 3) Known‐space KD‐tree
+  if (pclptr_map_ && !pclptr_map_->points.empty())
+  {
+    std::lock_guard<std::mutex> lk(mtx_kdtree_map_);
+    kdtree_map_.setInputCloud(pclptr_map_);
+    kdtree_map_initialized_ = true;
+    dgp_manager_.updateVecOccupied(pclptr_to_vec(pclptr_map_));
+  }
+  else
+  {
+    RCLCPP_WARN(
+        rclcpp::get_logger("mighty"),
+        "updateMap: member pclptr_map_ was null or empty; skipping KD-tree update");
   }
 }
 

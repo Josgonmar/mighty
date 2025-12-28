@@ -68,6 +68,7 @@ def record_ros2_bag(bag_name, bag_path, agents, topics=None):
         # "/occupancy_grid",
         # "/free_grid",
         # "/unknown_grid",
+        "/sensor_point_cloud",
     ]
 
     # Static topics (not agent-specific)
@@ -84,6 +85,8 @@ def record_ros2_bag(bag_name, bag_path, agents, topics=None):
         "/rosout",
         "/tf",
         "/tf_static",
+        "/map_generator/global_cloud",
+
         # "/shapes_dynamic_mesh"
     ]
     
