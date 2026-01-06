@@ -1,4 +1,3 @@
-# at the top of your Makefile
 .PHONY: build
 build:
 	docker build \

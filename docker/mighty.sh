@@ -6,4 +6,4 @@ source /home/kkondo/code/decomp_ws/install/setup.bash
 source /usr/share/gazebo/setup.sh
 
 # (0) sim in static environment
-tmuxp load /home/kkondo/code/mighty_ws/src/mighty/launch/docker_mighty_sim.yaml
+./src/mighty/launch/run_mighty_sim.sh /home/kkondo/code/mighty_ws/install/setup.bash

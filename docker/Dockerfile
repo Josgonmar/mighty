@@ -52,13 +52,14 @@ WORKDIR /home/kkondo/code/mighty_ws/src
 ARG DUMMY=unknown
 RUN DUMMY=${DUMMY} git clone https://github.com/mit-acl/mighty.git
 WORKDIR /home/kkondo/code/mighty_ws/src/mighty
-RUN git switch dev
+RUN git switch multiagent_sim
 WORKDIR /home/kkondo/code/mighty_ws/src
 RUN git clone https://github.com/kotakondo/dynus_interfaces.git
 RUN git clone https://github.com/kotakondo/realsense_gazebo_plugin.git
 RUN git clone https://github.com/kotakondo/livox_laser_simulation_ros2.git
 RUN git clone https://github.com/kotakondo/gazebo_ros_pkgs.git
 RUN git clone https://gitlab.com/mit-acl/lab/acl-mapping.git
+RUN git clone https://github.com/kotakondo/uav_simulator.git
 WORKDIR /home/kkondo/code/mighty_ws/src/acl-mapping
 RUN git switch ros2
 RUN mkdir -p /home/kkondo/code/decomp_ws/src
