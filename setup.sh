@@ -93,8 +93,8 @@ source /opt/ros/humble/setup.sh && ./build.sh humble
 
 #MIGHTY
 cd /home/${USER}/code/mighty_ws
-source /opt/ros/humble/setup.sh 
-source /home/${USER}/code/decomp_ws/install/setup.sh 
+source /opt/ros/humble/setup.sh
+source /home/${USER}/code/decomp_ws/install/setup.sh
 export CMAKE_PREFIX_PATH=/home/${USER}/code/livox_ws/install/livox_ros_driver2:/home/${USER}/code/decomp_ws/install/decomp_util
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 

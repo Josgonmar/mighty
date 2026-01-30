@@ -67,35 +67,67 @@ MIGHTY has been tested on both Docker and native installations on Ubuntu 22.04 w
    mkdir -p ~/code/ws/src
    cd ~/code/ws/src
    git clone https://github.com/mit-acl/mighty.git
-   cd src/mighty/docker
+   cd mighty/docker
    ```
 
 3. **BUILD:**
     - Navigate to the docker folder in your mighty repo (eg. `cd ~/code/ws/src/mighty/docker/`) and run this
       ```bash
       make build
+
+      # Or build without cache (useful when dependencies change)
+      make build-no-cache
       ```
 
 4. **Run Simulation**
-    - Run the following command to start the simulation:
-      ```bash
-      make run
-      ```
+    ```bash
+    # Multi-agent simulation (default: 10 agents)
+    make run
+
+    # Multi-agent with custom number of agents
+    make run-multiagent NUM_AGENTS=5
+
+    # Single-agent Gazebo simulation
+    make run-gazebo
+
+    # Gazebo with custom goal
+    make run-gazebo GOAL_X=100 GOAL_Y=50 GOAL_Z=3
+
+    # Gazebo with different environment (default: hard_forest)
+    make run-gazebo ENV=easy_forest
+
+    # Interactive shell (for debugging)
+    make shell
+    ```
+
+<details>
+  <summary><b>Docker Make Targets Reference</b></summary>
+
+  | Target | Description | Options |
+  |--------|-------------|---------|
+  | `make build` | Build the Docker image | - |
+  | `make build-no-cache` | Build without cache (forces fresh build) | - |
+  | `make run` | Run multiagent simulation (default: 10 agents) | - |
+  | `make run-multiagent` | Run multiagent with custom agent count | `NUM_AGENTS=N` (default: 10) |
+  | `make run-gazebo` | Run single-agent Gazebo simulation | `GOAL_X`, `GOAL_Y`, `GOAL_Z` (default: 305, 0, 3), `ENV` (default: hard_forest) |
+  | `make shell` | Open interactive shell for debugging | - |
+
+</details>
 
 <details>
   <summary><b>Useful Docker Commands</b></summary>
 
-  - **Remove all caches:**  
+  - **Remove all caches:**
     ```bash
     docker builder prune
     ```
 
-  - **Remove all containers:**  
+  - **Remove all containers:**
     ```bash
     docker rm $(docker ps -a -q)
     ```
 
-  - **Remove all images:**  
+  - **Remove all images:**
     ```bash
     docker rmi $(docker images -q)
     ```
