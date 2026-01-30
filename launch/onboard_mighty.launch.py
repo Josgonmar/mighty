@@ -30,6 +30,7 @@ def generate_launch_description():
     publish_odom_arg  = DeclareLaunchArgument('publish_odom', default_value='true')
     odom_topic_arg    = DeclareLaunchArgument('odom_topic', default_value='visual_slam/odom')
     odom_frame_id_arg = DeclareLaunchArgument('odom_frame_id', default_value='map')
+    sim_env_arg = DeclareLaunchArgument('sim_env', default_value='', description='Simulation environment: gazebo or fake_sim (empty = use mighty.yaml default)')
 
     # Need to be the same as simulartor.launch.py
     map_size_x_arg = DeclareLaunchArgument('map_size_x', default_value='20.0')
@@ -58,6 +59,7 @@ def generate_launch_description():
         map_size_y = float(LaunchConfiguration('map_size_y').perform(context))
         map_size_z = float(LaunchConfiguration('map_size_z').perform(context))
         odometry_topic = LaunchConfiguration('odometry_topic').perform(context)
+        sim_env = LaunchConfiguration('sim_env').perform(context)
 
         # The path to the urdf file
         urdf_path=PathJoinSubstitution([FindPackageShare('mighty'), 'urdf', 'quadrotor.urdf.xacro'])
@@ -69,7 +71,11 @@ def generate_launch_description():
 
         # Extract specific node parameters
         parameters = parameters['mighty_node']['ros__parameters']
-    
+
+        # Override sim_env if provided via launch argument
+        if sim_env:
+            parameters['sim_env'] = sim_env
+
         # Update parameters for benchmarking
         parameters['file_path'] = data_file
         parameters['use_benchmark'] = bool(use_benchmark)
@@ -228,5 +234,6 @@ def generate_launch_description():
         map_size_y_arg,
         map_size_z_arg,
         odometry_topic_arg,
+        sim_env_arg,
         OpaqueFunction(function=launch_setup)
     ])

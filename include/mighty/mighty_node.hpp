@@ -26,6 +26,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/float64.hpp>
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <fstream>                                         // for flie operations
@@ -330,6 +331,11 @@ namespace mighty
         // Timer to make sure we don't sample point cloud too often
         rclcpp::Time last_lidar_callback_time_;
         rclcpp::Time last_depth_camera_callback_time_;
+
+        // Command-to-execution timing (time from goal received to first trajectory)
+        rclcpp::Time goal_received_time_;
+        bool waiting_for_first_traj_ = false;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub_command_to_exec_time_;
 
     };
 

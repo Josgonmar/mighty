@@ -99,6 +99,7 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
   pub_own_traj_ = this->create_publisher<dynus_interfaces::msg::DynTraj>("/trajs", critical_qos);
   pub_goal_ = this->create_publisher<dynus_interfaces::msg::Goal>("goal", critical_qos);
   pub_goal_reached_ = this->create_publisher<std_msgs::msg::Empty>("goal_reached", critical_qos);
+  pub_command_to_exec_time_ = this->create_publisher<std_msgs::msg::Float64>("command_to_exec_time", 10);
 
   // Subscribers
   sub_traj_ = this->create_subscription<dynus_interfaces::msg::DynTraj>("/trajs", critical_qos, std::bind(&MIGHTY_NODE::trajCallback, this, std::placeholders::_1), options_re_1);
@@ -786,6 +787,17 @@ void MIGHTY_NODE::replanCallback()
   if (replanning_result)
     publishOwnTraj();
 
+  // Publish command-to-execution time (time from goal received to first trajectory)
+  if (replanning_result && waiting_for_first_traj_)
+  {
+    double command_to_exec_time_ms = (this->now() - goal_received_time_).seconds() * 1000.0;
+    std_msgs::msg::Float64 time_msg;
+    time_msg.data = command_to_exec_time_ms;
+    pub_command_to_exec_time_->publish(time_msg);
+    waiting_for_first_traj_ = false;
+    RCLCPP_INFO(this->get_logger(), "Command to execution time: %.2f ms", command_to_exec_time_ms);
+  }
+
   // For visualization of global path
   if (dgp_result && par_.visual_level >= 1)
     publishGlobalPath();
@@ -851,6 +863,9 @@ void MIGHTY_NODE::replanCallback()
  */
 void MIGHTY_NODE::terminalGoalCallback(const geometry_msgs::msg::PoseStamped &msg)
 {
+  // Record the time when goal is received (for command-to-execution timing)
+  goal_received_time_ = this->now();
+  waiting_for_first_traj_ = true;
 
   // Set the terminal goal
   state G_term;

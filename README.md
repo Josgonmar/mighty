@@ -119,39 +119,84 @@ MIGHTY has been tested on both Docker and native installations on Ubuntu 22.04 w
    This script will first install ROS 2 Humble, then MIGHTY and its dependencies. Please note that this script modifies your `~/.bashrc` file.
 
  3. **Run the Simulation**
-    Run the simulation. You might need to change the path to `setup.bash` to its absolute path (eg. `/home/kkondo/code/ws/install/setup.bash`).
+
+    Use the unified simulation launcher script `run_sim.py`:
+
     ```bash
-    cd ~/code/mighty_ws && ./src/mighty/launch/run_mighty_sim.sh ~/code/mighty_ws/install/setup.bash
+    cd ~/code/mighty_ws
+
+    # Multi-agent simulation with fake sensing (10 agents)
+    python3 src/mighty/scripts/run_sim.py --mode multiagent --setup-bash ~/code/mighty_ws/install/setup.bash
+
+    # Single-agent Gazebo simulation with ACL mapper
+    python3 src/mighty/scripts/run_sim.py --mode gazebo --setup-bash ~/code/mighty_ws/install/setup.bash
+
+    # Gazebo with custom goal position
+    python3 src/mighty/scripts/run_sim.py --mode gazebo --setup-bash ~/code/mighty_ws/install/setup.bash --goal 100 50 3
     ```
+
+### Simulation Launcher Options
+
+The `run_sim.py` script automatically handles:
+- Setting `sim_env` via launch argument (no manual YAML editing needed)
+- Launching all required nodes via tmux
+
+<details>
+  <summary><b>Multi-Agent Simulation (Fake Sensing)</b></summary>
+
+  ```bash
+  # Default: 10 agents in a circle formation
+  python3 src/mighty/scripts/run_sim.py --mode multiagent -s ~/code/mighty_ws/install/setup.bash
+
+  # Custom number of agents
+  python3 src/mighty/scripts/run_sim.py --mode multiagent -s ~/code/mighty_ws/install/setup.bash --num-agents 5
+
+  # Custom circle radius
+  python3 src/mighty/scripts/run_sim.py --mode multiagent -s ~/code/mighty_ws/install/setup.bash --radius 15
+  ```
+</details>
+
+<details>
+  <summary><b>Single-Agent Gazebo Simulation</b></summary>
+
+  ```bash
+  # Default goal (305, 0, 3)
+  python3 src/mighty/scripts/run_sim.py --mode gazebo -s ~/code/mighty_ws/install/setup.bash
+
+  # Custom goal
+  python3 src/mighty/scripts/run_sim.py --mode gazebo -s ~/code/mighty_ws/install/setup.bash --goal 100 50 3
+
+  # Custom start position
+  python3 src/mighty/scripts/run_sim.py --mode gazebo -s ~/code/mighty_ws/install/setup.bash --start 5 5 3
+
+  # Different environment
+  python3 src/mighty/scripts/run_sim.py --mode gazebo -s ~/code/mighty_ws/install/setup.bash --env easy_forest
+
+  # Enable Gazebo GUI
+  python3 src/mighty/scripts/run_sim.py --mode gazebo -s ~/code/mighty_ws/install/setup.bash --gazebo-gui
+  ```
+</details>
+
+<details>
+  <summary><b>All Options</b></summary>
+
+  ```
+  --mode, -m          Required. 'multiagent' or 'gazebo'
+  --setup-bash, -s    Required. Path to setup.bash
+  --goal, -g          Goal position X Y Z for gazebo mode (default: 305 0 3)
+  --start, -p         Start position X Y Z for gazebo mode (default: 0 0 3)
+  --start-yaw         Start yaw in radians (default: 1.57)
+  --num-agents, -n    Number of agents for multiagent mode (default: 10)
+  --radius, -r        Circle radius for multiagent formation (default: 10)
+  --env, -e           Gazebo environment (default: hard_forest)
+  --ros-domain-id     ROS_DOMAIN_ID (default: 7)
+  --no-rviz           Disable RViz
+  --gazebo-gui        Enable Gazebo GUI
+  --dry-run           Print generated YAML without launching
+  ```
+</details>
 
 ### Notes
-
-<details>
-  <summary><b>MIGHTY with Gazebo (and hence ACL mapper)</b></summary>
-  Make sure `sim_env` parameter in mighty.yaml is set to `gazebo` and run the following commands:
-  
-  - ```bash
-        colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && . install/setup.bash && ros2 launch mighty base_mighty.launch.py use_dyn_obs:=false use_gazebo_gui:=false use_rviz:=true env:=hard_forest
-    ```
-  
-  - ```bash
-        . install/setup.bash && ros2 launch global_mapper_ros global_mapper_node.launch.py quad:=NX01 depth_pointcloud_topic:=mid360_PointCloud2
-    ```
-    
-  - ```bash
-        . install/setup.bash && ros2 launch mighty onboard_mighty.launch.py namespace:=NX01 x:=0.0 y:=0.0 z:=1.0 yaw:=0.0
-    ```
-
-</details>
-
-<details>
-  <summary><b>Multi-MIGHTY with Fake Sensing</b></summary>
-  Make sure `sim_env` parameter in mighty.yaml is set to `fake_sim` and run:
-  
-  - ```bash
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && ./src/mighty/launch/run_mighty_sim.sh /home/kkondo/code/mighty_ws/install/setup.bash
-    ```
-</details>
 
 <details>
   <summary><b>Bag Recording</b></summary>
