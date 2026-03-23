@@ -92,7 +92,7 @@ def generate_multiagent_positions(num_agents: int, radius: float = 10.0, z: floa
     return agents
 
 
-def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_domain_id: int = 7) -> str:
+def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_domain_id: int = 20, radius: float = 10.0) -> str:
     """Generate YAML for multi-agent fake simulation."""
     panes = []
 
@@ -114,10 +114,11 @@ def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_d
         })
 
     # Goal monitor
+    num_agents = len(agents)
     panes.append({
         'shell_command': [
             'sleep 20',
-            'ros2 launch mighty goal_monitor.launch.py'
+            f'ros2 launch mighty goal_monitor.launch.py num_agents:={num_agents} radius:={radius}'
         ]
     })
 
@@ -131,6 +132,7 @@ def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_d
   echo "[ERROR] SETUP_BASH is missing or invalid: $SETUP_BASH" >&2
   exit 1
 fi
+unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH
 . "$SETUP_BASH"''',
                 f'export ROS_DOMAIN_ID={ros_domain_id}'
             ],
@@ -203,6 +205,7 @@ def generate_gazebo_yaml(setup_bash: Path, goal: tuple, sim_env: str,
   echo "[ERROR] SETUP_BASH is missing or invalid: $SETUP_BASH" >&2
   exit 1
 fi
+unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH
 . "$SETUP_BASH"''',
                 f'export ROS_DOMAIN_ID={ros_domain_id}'
             ],
@@ -284,8 +287,8 @@ def main():
     parser.add_argument(
         '--ros-domain-id',
         type=int,
-        default=7,
-        help='ROS_DOMAIN_ID (default: 7)'
+        default=20,
+        help='ROS_DOMAIN_ID (default: 20)'
     )
 
     parser.add_argument(
@@ -329,7 +332,7 @@ def main():
     if args.mode == 'multiagent':
         sim_env = 'fake_sim'
         agents = generate_multiagent_positions(args.num_agents, args.radius)
-        yaml_content = generate_multiagent_yaml(setup_bash, agents, sim_env, args.ros_domain_id)
+        yaml_content = generate_multiagent_yaml(setup_bash, agents, sim_env, args.ros_domain_id, args.radius)
         print(f"[INFO] Mode: Multi-agent simulation with {args.num_agents} agents (sim_env={sim_env})")
     else:  # gazebo
         sim_env = 'gazebo'
@@ -377,6 +380,14 @@ def main():
         print(yaml_content)
         print("-" * 60)
         return
+
+    # Kill any existing mighty_sim tmux session (prevents conflicts with prior runs)
+    subprocess.run(['tmux', 'kill-session', '-t', 'mighty_sim'],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Kill stale Gazebo processes that may linger from a previous gazebo-mode run
+    subprocess.run(['killall', '-q', 'gzserver', 'gzclient'],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Write temporary YAML file and launch with tmuxp
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:

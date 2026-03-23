@@ -11,7 +11,7 @@
 #include <Eigen/Core>
 #include <iostream>
 #include <vector>
-#include "dgp/data_type.hpp"
+#include "hgp/data_type.hpp"
 #include <memory>
 #include <algorithm> // for std::clamp
 #include <mighty/lbfgs_solver_utils.hpp>
@@ -45,6 +45,13 @@ struct parameters
   bool use_frame_alignment{false};
   int num_agents{10};
 
+  // Simulated frame offset (for testing frame alignment in fake_sim)
+  // Applied to published trajectory to simulate operating in a rotated frame
+  double sim_frame_offset_qx{0.0};
+  double sim_frame_offset_qy{0.0};
+  double sim_frame_offset_qz{0.0};
+  double sim_frame_offset_qw{1.0};
+
   // Flight mode
   std::string flight_mode;
 
@@ -65,6 +72,14 @@ struct parameters
   double z_max;
   double drone_radius;
   int dgp_timeout_duration_ms;
+  int max_expand{10000};
+
+  // HGP aliases (set equal to DGP equivalents in mighty_node.cpp)
+  double factor_hgp{1.0};
+  double inflation_hgp{0.45};
+  int hgp_timeout_duration_ms{10000};
+  int max_num_expansion{10000};
+
   bool use_free_start;
   double free_start_factor;
   bool use_free_goal;
@@ -110,7 +125,9 @@ struct parameters
   float heat_tau_ratio{0.5f};
   float heat_gamma{0.0f};
   float heat_Hmax{10.0f};
+  float obst_max_vel{1.0f};
   float dyn_base_inflation_m{0.5f};
+  float dyn_heat_tube_radius_m{2.0f};
   int heat_num_samples{15};
   bool static_heat_enabled{false};
   float static_heat_alpha{2.0f};
@@ -121,6 +138,14 @@ struct parameters
   bool static_heat_boundary_only{true};
   bool static_heat_apply_on_unknown{false};
   bool static_heat_exclude_dynamic{true};
+
+  // Soft-cost obstacle parameters
+  bool use_soft_cost_obstacles{false};
+  float obstacle_soft_cost{100.0f};
+
+  // HGP-specific parameters (from sando)
+  double obst_position_error{0.0};
+  bool inflate_unknown_boundary{false};
 
   // Communication delay parameters
   bool use_comm_delay_inflation;

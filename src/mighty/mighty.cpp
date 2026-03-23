@@ -22,8 +22,8 @@ typedef timer::Timer MyTimer;
 MIGHTY::MIGHTY(parameters par) : par_(par)
 {
 
-  // Set up dgp_manager
-  dgp_manager_.setParameters(par_);
+  // Set up hgp_manager
+  hgp_manager_.setParameters(par_);
 
   // Set up the planner parameters (TODO: move to parameters)
   planner_params_.verbose = false;                                 // enable verbose output
@@ -245,7 +245,7 @@ bool MIGHTY::findAandAtime(state &A, double &A_time, double current_time, double
 bool MIGHTY::checkIfPointOccupied(const Vec3f &point)
 {
   // Check if the point is free
-  return dgp_manager_.checkIfPointOccupied(point);
+  return hgp_manager_.checkIfPointOccupied(point);
 }
 
 // ----------------------------------------------------------------------------
@@ -253,7 +253,7 @@ bool MIGHTY::checkIfPointOccupied(const Vec3f &point)
 bool MIGHTY::checkIfPointFree(const Vec3f &point)
 {
   // Check if the point is free
-  return dgp_manager_.checkIfPointFree(point);
+  return hgp_manager_.checkIfPointFree(point);
 }
 
 // ----------------------------------------------------------------------------
@@ -268,13 +268,48 @@ bool MIGHTY::getSafeCorridor(const vec_Vecf<3> &global_path, const state &A)
   if (par_.debug_verbose)
     std::cout << "Convex decomposition" << std::endl;
 
+  // Set up ellipsoid decomposition utility
+  EllipsoidDecomp3D ellip;
+  ellip.set_local_bbox(Vec3f(par_.local_box_size[0], par_.local_box_size[1], par_.local_box_size[2]));
+  ellip.set_z_min_and_max(par_.z_min, par_.z_max);
+  ellip.set_inflate_distance(par_.drone_radius);
+
+  // Get occupied points for decomposition
+  vec_Vec3f base_uo;
+  hgp_manager_.getVecOccupied(base_uo);
+
+  // Empty obstacle arrays (dynamic obstacles handled via heat map, not corridors)
+  vec_Vecf<3> obst_pos, obst_bbox;
+  // seg_end_times must have one positive entry per segment (path.size()-1)
+  std::vector<double> seg_end_times(global_path.size() > 1 ? global_path.size() - 1 : 0, 1.0);
+
   // Check if the convex decomposition failed
-  if (!dgp_manager_.cvxEllipsoidDecomp(A, global_path, safe_corridor_polytopes_whole_, poly_out_whole_, false))
+  if (!hgp_manager_.cvxEllipsoidDecomp(ellip, global_path, base_uo, obst_pos, obst_bbox, seg_end_times, safe_corridor_polytopes_whole_, poly_out_whole_))
   {
     std::cout << bold << red << "Convex decomposition failed" << reset << std::endl;
     poly_out_whole_.clear();
     poly_out_safe_.clear();
     return false;
+  }
+
+  // Generate safe corridor (treat unknown regions as occupied)
+  {
+    EllipsoidDecomp3D ellip_safe;
+    ellip_safe.set_local_bbox(Vec3f(par_.local_box_size[0], par_.local_box_size[1], par_.local_box_size[2]));
+    ellip_safe.set_z_min_and_max(par_.z_min, par_.z_max);
+    ellip_safe.set_inflate_distance(par_.drone_radius);
+
+    vec_Vec3f base_uo_safe;
+    hgp_manager_.getVecUnknownOccupied(base_uo_safe);
+
+    std::vector<LinearConstraint3D> safe_constraints;
+    if (!hgp_manager_.cvxEllipsoidDecomp(ellip_safe, global_path, base_uo_safe,
+                                          obst_pos, obst_bbox, seg_end_times,
+                                          safe_constraints, poly_out_safe_))
+    {
+      // Fallback: use whole corridor if safe decomposition fails
+      poly_out_safe_ = poly_out_whole_;
+    }
   }
 
   // Get computation time [ms]
@@ -367,10 +402,10 @@ void MIGHTY::resetData()
 
   final_g_ = 0.0;
   global_planning_time_ = 0.0;
-  dgp_static_jps_time_ = 0.0;
-  dgp_check_path_time_ = 0.0;
-  dgp_dynamic_astar_time_ = 0.0;
-  dgp_recover_path_time_ = 0.0;
+  hgp_static_jps_time_ = 0.0;
+  hgp_check_path_time_ = 0.0;
+  hgp_dynamic_astar_time_ = 0.0;
+  hgp_recover_path_time_ = 0.0;
   cvx_decomp_time_ = 0.0;
   initial_guess_computation_time_ = 0.0;
   local_traj_computation_time_ = 0.0;
@@ -393,10 +428,10 @@ void MIGHTY::resetData()
 
 void MIGHTY::retrieveData(double &final_g,
                           double &global_planning_time,
-                          double &dgp_static_jps_time,
-                          double &dgp_check_path_time,
-                          double &dgp_dynamic_astar_time,
-                          double &dgp_recover_path_time,
+                          double &hgp_static_jps_time,
+                          double &hgp_check_path_time,
+                          double &hgp_dynamic_astar_time,
+                          double &hgp_recover_path_time,
                           double &cvx_decomp_time,
                           double &initial_guess_computation_time,
                           double &local_traj_computatoin_time,
@@ -407,10 +442,10 @@ void MIGHTY::retrieveData(double &final_g,
 {
   final_g = final_g_;
   global_planning_time = global_planning_time_;
-  dgp_static_jps_time = dgp_static_jps_time_;
-  dgp_check_path_time = dgp_check_path_time_;
-  dgp_dynamic_astar_time = dgp_dynamic_astar_time_;
-  dgp_recover_path_time = dgp_recover_path_time_;
+  hgp_static_jps_time = hgp_static_jps_time_;
+  hgp_check_path_time = hgp_check_path_time_;
+  hgp_dynamic_astar_time = hgp_dynamic_astar_time_;
+  hgp_recover_path_time = hgp_recover_path_time_;
   cvx_decomp_time = cvx_decomp_time_;
   initial_guess_computation_time = initial_guess_computation_time_;
   local_traj_computatoin_time = local_traj_computation_time_;
@@ -591,14 +626,14 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
   // Compute G
   computeG(local_A, local_G_term, par_.horizon);
 
-  // Set up the DGP planner (since updateVmax() needs to be called after setupDGPPlanner, we use v_max_ from the last replan)
-  dgp_manager_.setupDGPPlanner(par_.global_planner, par_.global_planner_verbose, map_res_, v_max_, par_.a_max, par_.j_max, par_.dgp_timeout_duration_ms, par_.w_unknown, par_.w_align, par_.decay_len_cells, par_.w_side, par_.los_cells, par_.min_len, par_.min_turn);
+  // Set up the HGP planner (since updateVmax() needs to be called after setupHGPPlanner, we use v_max_ from the last replan)
+  hgp_manager_.setupHGPPlanner(par_.global_planner, par_.global_planner_verbose, map_res_, v_max_, par_.a_max, par_.j_max, par_.hgp_timeout_duration_ms, par_.max_num_expansion, par_.w_unknown, par_.w_align, par_.decay_len_cells, par_.w_side, par_.los_cells, par_.min_len, par_.min_turn);
 
   // Free start and goal if necessary
   if (par_.use_free_start)
-    dgp_manager_.freeStart(local_A.pos, par_.free_start_factor);
+    hgp_manager_.freeStart(local_A.pos, par_.free_start_factor);
   if (par_.use_free_goal)
-    dgp_manager_.freeGoal(local_G.pos, par_.free_goal_factor);
+    hgp_manager_.freeGoal(local_G.pos, par_.free_goal_factor);
 
   // Debug
   if (par_.debug_verbose)
@@ -640,13 +675,13 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
   // 2) Use this as the "start_vel" argument (magnitude doesn't matter; we use the direction)
   Vec3f start_dir_hint(dir_hint.x(), dir_hint.y(), dir_hint.z());
 
-  // Solve DGP
-  // if (!dgp_manager_.solveDGP(local_A.pos, local_A.vel, local_G.pos, final_g_, par_.global_planner_huristic_weight, A_time, global_path))
-  if (!dgp_manager_.solveDGP(local_A.pos, start_dir_hint, local_G.pos, final_g_, par_.global_planner_huristic_weight, A_time, global_path))
+  // Solve HGP
+  vec_Vecf<3> raw_global_path;
+  if (!hgp_manager_.solveHGP(local_A.pos, start_dir_hint, local_G.pos, final_g_, par_.global_planner_huristic_weight, A_time, global_path, raw_global_path))
   {
     if (par_.debug_verbose)
-      std::cout << bold << red << "DGP did not find a solution" << reset << std::endl;
-    dgp_failure_count_++;
+      std::cout << bold << red << "HGP did not find a solution" << reset << std::endl;
+    hgp_failure_count_++;
     replanning_failure_count_++;
     return false;
   }
@@ -668,7 +703,7 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
     std::cout << "global_path.size(): " << global_path.size() << std::endl;
 
   // Get computation time
-  dgp_manager_.getComputationTime(global_planning_time_, dgp_static_jps_time_, dgp_check_path_time_, dgp_dynamic_astar_time_, dgp_recover_path_time_);
+  hgp_manager_.getComputationTime(global_planning_time_, hgp_static_jps_time_, hgp_check_path_time_, hgp_dynamic_astar_time_, hgp_recover_path_time_);
 
   return true;
 }
@@ -1578,14 +1613,14 @@ bool MIGHTY::checkReadyToReplan()
 {
   return state_initialized_ &&
          terminal_goal_initialized_ &&
-         dgp_manager_.isMapInitialized() &&
+         hgp_manager_.isMapInitialized() &&
          (!par_.use_hardware || (kdtree_map_initialized_
                                  // && kdtree_unk_initialized_
                                  ));
 
   // if (!is_ready) printf("\033[1;31mNot ready to replan: state_initialized_=%d, terminal_goal_initialized_=%d, map_initialized_=%d, kdtree_map_initialized_=%d\033[0m\n",
   //                            state_initialized_, terminal_goal_initialized_,
-  //                            dgp_manager_.isMapInitialized(),
+  //                            hgp_manager_.isMapInitialized(),
   //                            kdtree_map_initialized_ /*, kdtree_unk_initialized_*/);
 }
 
@@ -1611,19 +1646,103 @@ void MIGHTY::updateMap(
   getG(local_G);
   computeMapSize(local_state.pos, local_G.pos);
 
-  // 2) map update (unlocked)
-  // Get trajectories for dynamic heat map
+  // 2) Extract obstacle data from dynamic trajectories for HGP heat map
   auto trajs = getTrajs();
   double current_time = local_state.t;
-  dgp_manager_.updateMap(wdx_, wdy_, wdz_, map_center_, pclptr_map_, trajs, current_time);
+  vec_Vecf<3> obst_pos, obst_bbox;
+  double traj_max_time = 0.0;
 
-  // 3) Known‐space KD‐tree
+  if (par_.use_heat_map && par_.dynamic_heat_enabled && !trajs.empty())
+  {
+    obst_pos.reserve(trajs.size());
+    obst_bbox.reserve(trajs.size());
+    const double lookahead_time = 3.0;
+    traj_max_time = lookahead_time;
+
+    for (const auto &traj : trajs)
+    {
+      if (!traj) continue;
+      Eigen::Vector3d pos = traj->eval(current_time);
+      obst_pos.push_back(pos.cast<double>());
+      Eigen::Vector3d bbox_half = traj->bbox / 2.0;
+      obst_bbox.push_back(bbox_half.cast<double>());
+    }
+
+    // Sample predicted positions along each trajectory
+    if (par_.heat_num_samples > 0)
+    {
+      std::vector<vec_Vecf<3>> dyn_pred_samples;
+      std::vector<float> dyn_pred_times;
+      const size_t N = trajs.size();
+      dyn_pred_samples.resize(N);
+      const int num_samples = par_.heat_num_samples;
+
+      double max_horizon = 0.0;
+      for (size_t k = 0; k < N; ++k)
+      {
+        if (!trajs[k]) continue;
+        double duration = 0.0;
+        switch (trajs[k]->mode)
+        {
+        case dynTraj::Mode::Piecewise:
+          if (trajs[k]->pwp.times.size() >= 2)
+            duration = trajs[k]->pwp.times.back() - trajs[k]->pwp.times.front();
+          break;
+        case dynTraj::Mode::Quintic:
+          duration = trajs[k]->poly_end_time - trajs[k]->poly_start_time;
+          break;
+        default:
+          duration = lookahead_time;
+          break;
+        }
+        max_horizon = std::max(max_horizon, std::max(0.0, duration));
+      }
+      if (max_horizon < 1e-3) max_horizon = lookahead_time;
+
+      for (size_t k = 0; k < N; ++k)
+      {
+        if (!trajs[k]) continue;
+        double t_start = 0.0;
+        switch (trajs[k]->mode)
+        {
+        case dynTraj::Mode::Piecewise:
+          if (!trajs[k]->pwp.times.empty())
+            t_start = trajs[k]->pwp.times.front();
+          break;
+        case dynTraj::Mode::Quintic:
+          t_start = trajs[k]->poly_start_time;
+          break;
+        default:
+          t_start = current_time;
+          break;
+        }
+        dyn_pred_samples[k].reserve(num_samples);
+        for (int j = 0; j < num_samples; ++j)
+        {
+          const double t = t_start + (double)j * max_horizon / (double)(num_samples - 1);
+          Eigen::Vector3d pred_pos = trajs[k]->eval(t);
+          dyn_pred_samples[k].push_back(pred_pos.cast<double>());
+        }
+      }
+
+      dyn_pred_times.resize(num_samples);
+      for (int j = 0; j < num_samples; ++j)
+        dyn_pred_times[j] = (float)j * (float)max_horizon / (float)(num_samples - 1);
+
+      hgp_manager_.setDynamicPredictedSamples(dyn_pred_samples, dyn_pred_times);
+    }
+  }
+
+  // 3) Call HGP updateMap with extracted obstacle data
+  hgp_manager_.updateMap(wdx_, wdy_, wdz_, map_center_, pclptr_map_, pclptr_unk_, obst_pos, obst_bbox, traj_max_time);
+
+  // 4) Known‐space KD‐tree
   if (pclptr_map_ && !pclptr_map_->points.empty())
   {
     std::lock_guard<std::mutex> lk(mtx_kdtree_map_);
     kdtree_map_.setInputCloud(pclptr_map_);
     kdtree_map_initialized_ = true;
-    dgp_manager_.updateVecOccupied(pclptr_to_vec(pclptr_map_));
+    hgp_manager_.updateVecOccupied(pclptr_to_vec(pclptr_map_));
   }
   else
   {
@@ -1632,15 +1751,14 @@ void MIGHTY::updateMap(
         "updateMap: member pclptr_map_ was null or empty; skipping KD-tree update");
   }
 
-  // 4) Unknown‐space KD‐tree
+  // 5) Unknown‐space KD‐tree
   if (pclptr_unk_ && !pclptr_unk_->points.empty())
   {
     std::lock_guard<std::mutex> lk(mtx_kdtree_unk_);
     kdtree_unk_.setInputCloud(pclptr_unk_);
     kdtree_unk_initialized_ = true;
-    // merge known into unknown vector
-    dgp_manager_.updateVecUnknownOccupied(pclptr_to_vec(pclptr_unk_));
-    dgp_manager_.insertVecOccupiedToVecUnknownOccupied();
+    hgp_manager_.updateVecUnknownOccupied(pclptr_to_vec(pclptr_unk_));
+    hgp_manager_.insertVecOccupiedToVecUnknownOccupied();
   }
   else
   {
@@ -1667,11 +1785,15 @@ void MIGHTY::updateOccupancyMap(
   getG(local_G);
   computeMapSize(local_state.pos, local_G.pos);
 
-  // 2) map update (unlocked)
-  // Get trajectories for dynamic heat map
+  // 2) Extract obstacle data from dynamic trajectories
   auto trajs = getTrajs();
   double current_time = local_state.t;
-  dgp_manager_.updateMap(wdx_, wdy_, wdz_, map_center_, pclptr_map_, trajs, current_time);
+  vec_Vecf<3> obst_pos, obst_bbox;
+  double traj_max_time = 0.0;
+  // No unknown cloud for occupancy-only update
+  pcl::PointCloud<pcl::PointXYZ>::Ptr empty_unk(new pcl::PointCloud<pcl::PointXYZ>());
+
+  hgp_manager_.updateMap(wdx_, wdy_, wdz_, map_center_, pclptr_map_, empty_unk, obst_pos, obst_bbox, traj_max_time);
 
   // 3) Known‐space KD‐tree
   if (pclptr_map_ && !pclptr_map_->points.empty())
@@ -1679,7 +1801,7 @@ void MIGHTY::updateOccupancyMap(
     std::lock_guard<std::mutex> lk(mtx_kdtree_map_);
     kdtree_map_.setInputCloud(pclptr_map_);
     kdtree_map_initialized_ = true;
-    dgp_manager_.updateVecOccupied(pclptr_to_vec(pclptr_map_));
+    hgp_manager_.updateVecOccupied(pclptr_to_vec(pclptr_map_));
   }
   else
   {

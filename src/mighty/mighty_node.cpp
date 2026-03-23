@@ -68,8 +68,7 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
   pub_dynamic_map_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("dynamic_map_marker", 10);                                   // visual level 2
   pub_free_map_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("free_map_marker", 10);                                         // visual level 2
   pub_unknown_map_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("unknown_map_marker", 10);                                   // visual level 2
-  pub_heat_map_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("heat_map_marker", 1);                                          // visual level 2
-  pub_dynamic_heat_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("dynamic_heat_cloud", 10);                                          // visual level 2
+  pub_heat_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("heat_cloud", 10);                                                          // visual level 2
   pub_free_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("free_grid", 10);                                                             // visual level 2 (no longer used)
   pub_unknown_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("unknown_grid", 10);                                                       // visual level 2 (no longer used)
   pub_dgp_path_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("dgp_path_marker", 10);                                         // visual level 1
@@ -218,6 +217,10 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("map_frame_id", "map");
   this->declare_parameter("use_frame_alignment", false);
   this->declare_parameter("num_agents", 10);
+  this->declare_parameter("sim_frame_offset_qx", 0.0);
+  this->declare_parameter("sim_frame_offset_qy", 0.0);
+  this->declare_parameter("sim_frame_offset_qz", 0.0);
+  this->declare_parameter("sim_frame_offset_qw", 1.0);
 
   // Flight mode
   this->declare_parameter("flight_mode", "terminal_goal");
@@ -241,6 +244,7 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("z_min", 0.0);
   this->declare_parameter("z_max", 5.0);
   this->declare_parameter("dgp_timeout_duration_ms", 1000);
+  this->declare_parameter("max_expand", 10000);
   this->declare_parameter("use_free_start", false);
   this->declare_parameter("free_start_factor", 1.0);
   this->declare_parameter("use_free_goal", false);
@@ -291,7 +295,9 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("heat_tau_ratio", 0.5);
   this->declare_parameter("heat_gamma", 0.0);
   this->declare_parameter("heat_Hmax", 10.0);
+  this->declare_parameter("obst_max_vel", 1.0);
   this->declare_parameter("dyn_base_inflation_m", 0.5);
+  this->declare_parameter("dyn_heat_tube_radius_m", 2.0);
   this->declare_parameter("heat_num_samples", 15);
   this->declare_parameter("static_heat_enabled", false);
   this->declare_parameter("static_heat_alpha", 2.0);
@@ -302,6 +308,10 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("static_heat_boundary_only", true);
   this->declare_parameter("static_heat_apply_on_unknown", false);
   this->declare_parameter("static_heat_exclude_dynamic", true);
+
+  // Soft-cost obstacle parameters
+  this->declare_parameter("use_soft_cost_obstacles", false);
+  this->declare_parameter("obstacle_soft_cost", 100.0);
 
   // Communication delay parameters
   this->declare_parameter("use_comm_delay_inflation", true);
@@ -419,6 +429,21 @@ void MIGHTY_NODE::setParameters()
   par_.map_frame_id = this->get_parameter("map_frame_id").as_string();
   par_.use_frame_alignment = this->get_parameter("use_frame_alignment").as_bool();
   par_.num_agents = this->get_parameter("num_agents").as_int();
+  par_.sim_frame_offset_qx = this->get_parameter("sim_frame_offset_qx").as_double();
+  par_.sim_frame_offset_qy = this->get_parameter("sim_frame_offset_qy").as_double();
+  par_.sim_frame_offset_qz = this->get_parameter("sim_frame_offset_qz").as_double();
+  par_.sim_frame_offset_qw = this->get_parameter("sim_frame_offset_qw").as_double();
+
+  // Build the sim frame offset matrix
+  {
+    Eigen::Quaterniond q(par_.sim_frame_offset_qw, par_.sim_frame_offset_qx,
+                         par_.sim_frame_offset_qy, par_.sim_frame_offset_qz);
+    sim_frame_offset_ = Eigen::Matrix4d::Identity();
+    sim_frame_offset_.block<3, 3>(0, 0) = q.normalized().toRotationMatrix();
+    // Inverse: for pure rotation, R^-1 = R^T
+    sim_frame_offset_inv_ = Eigen::Matrix4d::Identity();
+    sim_frame_offset_inv_.block<3, 3>(0, 0) = q.normalized().toRotationMatrix().transpose();
+  }
 
   // Flight mode
   par_.flight_mode = this->get_parameter("flight_mode").as_string();
@@ -441,6 +466,14 @@ void MIGHTY_NODE::setParameters()
   par_.z_min = this->get_parameter("z_min").as_double();
   par_.z_max = this->get_parameter("z_max").as_double();
   par_.dgp_timeout_duration_ms = this->get_parameter("dgp_timeout_duration_ms").as_int();
+  par_.max_expand = this->get_parameter("max_expand").as_int();
+
+  // Set HGP aliases from DGP parameters
+  par_.factor_hgp = par_.factor_dgp;
+  par_.inflation_hgp = par_.inflation_dgp;
+  par_.hgp_timeout_duration_ms = par_.dgp_timeout_duration_ms;
+  par_.max_num_expansion = par_.max_expand;
+
   par_.use_free_start = this->get_parameter("use_free_start").as_bool();
   par_.free_start_factor = this->get_parameter("free_start_factor").as_double();
   par_.use_free_goal = this->get_parameter("use_free_goal").as_bool();
@@ -493,7 +526,9 @@ void MIGHTY_NODE::setParameters()
   par_.heat_tau_ratio = this->get_parameter("heat_tau_ratio").as_double();
   par_.heat_gamma = this->get_parameter("heat_gamma").as_double();
   par_.heat_Hmax = this->get_parameter("heat_Hmax").as_double();
+  par_.obst_max_vel = this->get_parameter("obst_max_vel").as_double();
   par_.dyn_base_inflation_m = this->get_parameter("dyn_base_inflation_m").as_double();
+  par_.dyn_heat_tube_radius_m = this->get_parameter("dyn_heat_tube_radius_m").as_double();
   par_.heat_num_samples = this->get_parameter("heat_num_samples").as_int();
   par_.static_heat_enabled = this->get_parameter("static_heat_enabled").as_bool();
   par_.static_heat_alpha = this->get_parameter("static_heat_alpha").as_double();
@@ -504,6 +539,10 @@ void MIGHTY_NODE::setParameters()
   par_.static_heat_boundary_only = this->get_parameter("static_heat_boundary_only").as_bool();
   par_.static_heat_apply_on_unknown = this->get_parameter("static_heat_apply_on_unknown").as_bool();
   par_.static_heat_exclude_dynamic = this->get_parameter("static_heat_exclude_dynamic").as_bool();
+
+  // Soft-cost obstacle parameters
+  par_.use_soft_cost_obstacles = this->get_parameter("use_soft_cost_obstacles").as_bool();
+  par_.obstacle_soft_cost = this->get_parameter("obstacle_soft_cost").as_double();
 
   // Communication delay parameters
   par_.use_comm_delay_inflation = this->get_parameter("use_comm_delay_inflation").as_bool();
@@ -827,8 +866,17 @@ void MIGHTY_NODE::trajCallback(const dynus_interfaces::msg::DynTraj::SharedPtr m
     m.color.r = r; m.color.g = g; m.color.b = b; m.color.a = 1.0;
     m.lifetime = rclcpp::Duration(1, 0);  // 1 second
     const int N = 30;
+    // Sample over the trajectory's actual time range instead of a fixed window
     double t0 = current_time;
-    double tf = current_time + 2.0;
+    double tf;
+    if (t->mode == dynTraj::Mode::Piecewise && !t->pwp.times.empty()) {
+      tf = t->pwp.getEndTime();
+    } else if (t->mode == dynTraj::Mode::Quintic) {
+      tf = t->poly_end_time;
+    } else {
+      tf = current_time + 2.0;  // fallback for analytic
+    }
+    if (tf <= t0) tf = t0 + 2.0;  // safety: ensure non-degenerate range
     for (int i = 0; i <= N; i++)
     {
       double ti = t0 + (tf - t0) * i / N;
@@ -846,7 +894,13 @@ void MIGHTY_NODE::trajCallback(const dynus_interfaces::msg::DynTraj::SharedPtr m
     // Publish BEFORE transform (red, slight z offset for debug)
     publishTrajMarker(traj, pub_traj_received_, 1.0, 0.2, 0.2, 0.1);
 
+    // Frame alignment: other's frame → ego's frame
     applyFrameAlignTransform(traj, msg->id);
+
+    // Undo ego's sim_frame_offset: ego's frame → world frame
+    // (In fake_sim the agent operates in world frame, so we need to bring it back)
+    if (!sim_frame_offset_inv_.isIdentity(1e-9))
+      applyTransformToTraj(traj, sim_frame_offset_inv_);
   }
 
   // Always publish other agents' trajectories in solid blue (after transform if applicable)
@@ -1196,7 +1250,19 @@ void MIGHTY_NODE::applyFrameAlignTransform(
     }
     T = it->second;
   }
+  applyTransformToTraj(traj, T);
+}
 
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Apply a 4x4 transform to a trajectory (modifies in place)
+ * @param traj The trajectory to transform
+ * @param T The 4x4 transformation matrix
+ */
+void MIGHTY_NODE::applyTransformToTraj(
+    std::shared_ptr<dynTraj> &traj, const Eigen::Matrix4d &T)
+{
   Eigen::Matrix3d R = T.block<3, 3>(0, 0);
 
   // Transform PieceWiseQuinticPol
@@ -1496,10 +1562,10 @@ void MIGHTY_NODE::setComputationTimesToZero()
 {
   final_g_ = 0.0;
   global_planning_time_ = 0.0;
-  dgp_static_jps_time_ = 0.0;
-  dgp_check_path_time_ = 0.0;
-  dgp_dynamic_astar_time_ = 0.0;
-  dgp_recover_path_time_ = 0.0;
+  hgp_static_jps_time_ = 0.0;
+  hgp_check_path_time_ = 0.0;
+  hgp_dynamic_astar_time_ = 0.0;
+  hgp_recover_path_time_ = 0.0;
   cvx_decomp_time_ = 0.0;
   initial_guess_computation_time_ = 0.0;
   local_traj_computation_time_ = 0.0;
@@ -1518,10 +1584,10 @@ void MIGHTY_NODE::retrieveData()
 {
   mighty_ptr_->retrieveData(final_g_,
                             global_planning_time_,
-                            dgp_static_jps_time_,
-                            dgp_check_path_time_,
-                            dgp_dynamic_astar_time_,
-                            dgp_recover_path_time_,
+                            hgp_static_jps_time_,
+                            hgp_check_path_time_,
+                            hgp_dynamic_astar_time_,
+                            hgp_recover_path_time_,
                             cvx_decomp_time_,
                             initial_guess_computation_time_,
                             local_traj_computation_time_,
@@ -1553,10 +1619,10 @@ void MIGHTY_NODE::printComputationTime(bool result)
   RCLCPP_INFO(this->get_logger(), "Yaw Fitting Time [ms]: %f", yaw_fitting_time_);
   if (par_.global_planner == "dgp")
   {
-    RCLCPP_INFO(this->get_logger(), "Static JPS Time [ms]: %f", dgp_static_jps_time_);
-    RCLCPP_INFO(this->get_logger(), "Check Path Time [ms]: %f", dgp_check_path_time_);
-    RCLCPP_INFO(this->get_logger(), "Dynamic A* Time [ms]: %f", dgp_dynamic_astar_time_);
-    RCLCPP_INFO(this->get_logger(), "Recover Path Time [ms]: %f", dgp_recover_path_time_);
+    RCLCPP_INFO(this->get_logger(), "Static JPS Time [ms]: %f", hgp_static_jps_time_);
+    RCLCPP_INFO(this->get_logger(), "Check Path Time [ms]: %f", hgp_check_path_time_);
+    RCLCPP_INFO(this->get_logger(), "Dynamic A* Time [ms]: %f", hgp_dynamic_astar_time_);
+    RCLCPP_INFO(this->get_logger(), "Recover Path Time [ms]: %f", hgp_recover_path_time_);
   }
   RCLCPP_INFO(this->get_logger(), "------------------------");
 }
@@ -1574,7 +1640,7 @@ void MIGHTY_NODE::recordData(bool result)
   std::tuple<bool, double, double, double, double, double, double, double, double, double, double, double, double, double, double> data;
   if (par_.global_planner == "dgp")
   {
-    data = std::make_tuple(result, final_g_, replanning_computation_time_, global_planning_time_, cvx_decomp_time_, initial_guess_computation_time_, local_traj_computation_time_, safe_paths_time_, safety_check_time_, yaw_sequence_time_, yaw_fitting_time_, dgp_static_jps_time_, dgp_check_path_time_, dgp_dynamic_astar_time_, dgp_recover_path_time_);
+    data = std::make_tuple(result, final_g_, replanning_computation_time_, global_planning_time_, cvx_decomp_time_, initial_guess_computation_time_, local_traj_computation_time_, safe_paths_time_, safety_check_time_, yaw_sequence_time_, yaw_fitting_time_, hgp_static_jps_time_, hgp_check_path_time_, hgp_dynamic_astar_time_, hgp_recover_path_time_);
   }
   else
   {
@@ -1709,6 +1775,35 @@ void MIGHTY_NODE::publishOwnTraj()
   // Get the piecewise quintic polynomial trajectory to share
   mighty_ptr_->getPiecewiseQuinticPol(pwp_to_share_);
 
+  // Apply simulated frame offset (for testing frame alignment in fake_sim).
+  // This pre-rotates the trajectory into the agent's own (simulated) frame,
+  // so that the receiver's frame alignment can correct it back.
+  if (par_.use_frame_alignment && !sim_frame_offset_.isIdentity(1e-9))
+  {
+    Eigen::Matrix3d R = sim_frame_offset_.block<3, 3>(0, 0);
+    for (size_t i = 0; i < pwp_to_share_.coeff_x.size(); i++)
+    {
+      for (int j = 0; j < 5; j++)  // non-constant: rotate only
+      {
+        Eigen::Vector3d c(pwp_to_share_.coeff_x[i](j),
+                          pwp_to_share_.coeff_y[i](j),
+                          pwp_to_share_.coeff_z[i](j));
+        c = R * c;
+        pwp_to_share_.coeff_x[i](j) = c.x();
+        pwp_to_share_.coeff_y[i](j) = c.y();
+        pwp_to_share_.coeff_z[i](j) = c.z();
+      }
+      // constant term (j=5): full transform (rotation + translation)
+      Eigen::Vector4d h;
+      h << pwp_to_share_.coeff_x[i](5), pwp_to_share_.coeff_y[i](5),
+           pwp_to_share_.coeff_z[i](5), 1.0;
+      h = sim_frame_offset_ * h;
+      pwp_to_share_.coeff_x[i](5) = h(0);
+      pwp_to_share_.coeff_y[i](5) = h(1);
+      pwp_to_share_.coeff_z[i](5) = h(2);
+    }
+  }
+
   // Create the message
   dynus_interfaces::msg::DynTraj msg;
   msg.header.stamp = this->now();
@@ -1724,9 +1819,23 @@ void MIGHTY_NODE::publishOwnTraj()
   // Get the terminal goal
   state G;
   mighty_ptr_->getG(G);
-  msg.goal.push_back(G.pos(0));
-  msg.goal.push_back(G.pos(1));
-  msg.goal.push_back(G.pos(2));
+
+  // Apply sim frame offset to the goal as well
+  if (par_.use_frame_alignment && !sim_frame_offset_.isIdentity(1e-9))
+  {
+    Eigen::Vector4d g;
+    g << G.pos(0), G.pos(1), G.pos(2), 1.0;
+    g = sim_frame_offset_ * g;
+    msg.goal.push_back(g(0));
+    msg.goal.push_back(g(1));
+    msg.goal.push_back(g(2));
+  }
+  else
+  {
+    msg.goal.push_back(G.pos(0));
+    msg.goal.push_back(G.pos(1));
+    msg.goal.push_back(G.pos(2));
+  }
 
   // Publish the trajectory
   pub_own_traj_->publish(msg);
@@ -2288,11 +2397,10 @@ void MIGHTY_NODE::mapCallback(
 
   mighty_ptr_->updateMap(map_pc, unk_pc);
 
-  // Publish heat map visualizations if enabled
+  // Publish heat cloud visualization if enabled
   if (par_.use_heat_map)
   {
-    publishHeatMap();
-    publishDynamicHeatCloud();
+    publishHeatCloud();
   }
 }
 
@@ -2306,80 +2414,33 @@ void MIGHTY_NODE::occupancyMapCallback(
   pcl::fromROSMsg(*map_msg, *map_pc);
 
   mighty_ptr_->updateOccupancyMap(map_pc);
-}
 
-// ----------------------------------------------------------------------------
-
-void MIGHTY_NODE::publishHeatMap()
-{
-  auto map_util = mighty_ptr_->getMapUtil();
-  if (!map_util || par_.visual_level < 2)
-    return;
-
-  auto heat_cloud = map_util->getHeatCloud(0.01f);
-  if (heat_cloud.empty())
-    return;
-
-  auto heat_values = map_util->getHeatValues();
-  float max_heat = map_util->getMaxHeat();
-
-  if (max_heat < 1e-6f)
-    return;
-
-  visualization_msgs::msg::MarkerArray ma;
-  visualization_msgs::msg::Marker marker;
-
-  marker.header.frame_id = par_.map_frame_id;
-  marker.header.stamp = this->now();
-  marker.ns = "heat_map";
-  marker.id = 0;
-  marker.type = visualization_msgs::msg::Marker::CUBE_LIST;
-  marker.action = visualization_msgs::msg::Marker::ADD;
-  marker.scale.x = marker.scale.y = marker.scale.z = par_.res;
-  marker.pose.orientation.w = 1.0;
-
-  // Map from cell indices to heat values
-  size_t valid_count = 0;
-  for (size_t i = 0; i < heat_cloud.size(); ++i)
+  // Publish heat cloud visualization if enabled
+  if (par_.use_heat_map)
   {
-    if (valid_count < heat_values.size())
-    {
-      geometry_msgs::msg::Point p;
-      p.x = heat_cloud[i](0);
-      p.y = heat_cloud[i](1);
-      p.z = heat_cloud[i](2);
-      marker.points.push_back(p);
-
-      auto color = getColorJet(heat_values[valid_count], 0.0, max_heat);
-      color.a = 0.6;  // Semi-transparent
-      marker.colors.push_back(color);
-
-      valid_count++;
-    }
+    publishHeatCloud();
   }
-
-  ma.markers.push_back(marker);
-  pub_heat_map_marker_->publish(ma);
 }
 
 // ----------------------------------------------------------------------------
 
-void MIGHTY_NODE::publishDynamicHeatCloud()
+void MIGHTY_NODE::publishHeatCloud()
 {
-  if (!pub_dynamic_heat_cloud_)
+  if (!pub_heat_cloud_)
     return;
 
   auto map_util = mighty_ptr_->getMapUtil();
   if (!map_util)
     return;
 
-  // Check if any heat is enabled
-  if (!par_.use_heat_map || (!par_.dynamic_heat_enabled && !par_.static_heat_enabled))
+  // Check if any heat source is enabled
+  const bool has_heat = par_.dynamic_heat_enabled || par_.static_heat_enabled;
+  if (!par_.use_heat_map || !has_heat)
     return;
 
   // -------- Tunables --------
-  const int stride = 2;             // 1 = every voxel, 2 = every 2 voxels, etc.
-  const float heat_min = 0.05f;     // only publish voxels with heat >= this
+  const int stride = 1;             // 1 = every voxel, 2 = every 2 voxels, etc.
+  const float heat_min = 0.001f;    // only publish voxels with heat >= this
   const size_t max_points = 200000; // hard cap for safety
   // --------------------------
 
@@ -2415,6 +2476,18 @@ void MIGHTY_NODE::publishDynamicHeatCloud()
   }
 
 BUILD_MSG:
+  // Normalize intensities to [0, 1] so the color gradient is visible in RViz
+  float max_intensity = 0.0f;
+  for (const float v : intens)
+    max_intensity = std::max(max_intensity, v);
+
+  if (max_intensity > 0.0f)
+  {
+    const float inv_max = 1.0f / max_intensity;
+    for (float &v : intens)
+      v *= inv_max;
+  }
+
   sensor_msgs::msg::PointCloud2 msg;
   msg.header.frame_id = par_.map_frame_id;
   msg.header.stamp = this->now();
@@ -2442,7 +2515,7 @@ BUILD_MSG:
     *iter_i = intens[k];
   }
 
-  pub_dynamic_heat_cloud_->publish(msg);
+  pub_heat_cloud_->publish(msg);
 }
 
 // ----------------------------------------------------------------------------

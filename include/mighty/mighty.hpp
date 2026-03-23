@@ -18,10 +18,10 @@
 #include <stdlib.h>
 
 #include "timer.hpp"
-#include "dgp/termcolor.hpp"
+#include "hgp/termcolor.hpp"
 #include "mighty/mighty_type.hpp"
 #include <mighty/utils.hpp>
-#include "dgp/dgp_manager.hpp"
+#include "hgp/hgp_manager.hpp"
 #include <mighty/lbfgs_solver.hpp>
 
 enum
@@ -118,7 +118,7 @@ public:
   void getFreeGlobalPath(vec_Vecf<3> &free_global_path);
   bool generateLocalTrajectory(const state &local_A, double A_time, vec_Vec3f &global_path, double &initial_guess_computation_time, double &local_traj_computation_time, std::shared_ptr<lbfgs::SolverLBFGS> &whole_traj_solver_ptr);
   void resetData();
-  void retrieveData(double &final_g, double &global_planning_time, double &dgp_static_jps_time, double &dgp_check_path_time, double &dgp_dynamic_astar_time, double &dgp_recover_path_time, double &cvx_decomp_time, double &initial_guess_computation_time, double &local_traj_computatoin_time, double &safety_check_time, double &safe_paths_time, double &yaw_sequence_time, double &yaw_fitting_time);
+  void retrieveData(double &final_g, double &global_planning_time, double &hgp_static_jps_time, double &hgp_check_path_time, double &hgp_dynamic_astar_time, double &hgp_recover_path_time, double &cvx_decomp_time, double &initial_guess_computation_time, double &local_traj_computatoin_time, double &safety_check_time, double &safe_paths_time, double &yaw_sequence_time, double &yaw_fitting_time);
   void retrievePolytopes(vec_E<Polyhedron<3>> &poly_out_whole, vec_E<Polyhedron<3>> &poly_out_safe);
   void retrieveGoalSetpoints(std::vector<state> &goal_setpoints);
   void retrieveListSubOptGoalSetpoints(std::vector<std::vector<state>> &list_subopt_goal_setpoints);
@@ -133,12 +133,12 @@ public:
   void updateMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_map, const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_unk);
   void updateOccupancyMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_map);
   void getPiecewiseQuinticPol(PieceWiseQuinticPol &pwp);
-  std::shared_ptr<mighty::VoxelMapUtil> getMapUtil() const { return dgp_manager_.map_util_; }
+  std::shared_ptr<mighty::VoxelMapUtil> getMapUtil() const { return hgp_manager_.map_util_; }
 
 private:
   // Parameters
   parameters par_;                                                       // Parameters of the planner
-  DGPManager dgp_manager_;                                               // DGP Manager
+  HGPManager hgp_manager_;                                               // HGP Manager
   std::vector<LinearConstraint3D> safe_corridor_polytopes_whole_;        // Polytope (Linear) constraints for whole trajectory
   std::shared_ptr<lbfgs::SolverLBFGS> whole_traj_solver_ptr_;            // L-BFGS solver pointer for the whole trajectory
   std::vector<std::shared_ptr<dynTraj>> trajs_;                          // Dynamic trajectory
@@ -160,10 +160,10 @@ private:
   // Data
   double final_g_ = 0.0;
   double global_planning_time_ = 0.0;
-  double dgp_static_jps_time_ = 0.0;
-  double dgp_check_path_time_ = 0.0;
-  double dgp_dynamic_astar_time_ = 0.0;
-  double dgp_recover_path_time_ = 0.0;
+  double hgp_static_jps_time_ = 0.0;
+  double hgp_check_path_time_ = 0.0;
+  double hgp_dynamic_astar_time_ = 0.0;
+  double hgp_recover_path_time_ = 0.0;
   double cvx_decomp_time_ = 0.0;
   double initial_guess_computation_time_ = 0.0;
   double local_traj_computation_time_ = 0.0;
@@ -214,7 +214,7 @@ private:
   std::mutex mtx_G_term_;               // Mutex for the G_term_
   std::mutex mtx_E_;                    // Mutex for the E_
   std::mutex mtx_trajs_;                // Mutex for the trajs_
-  std::mutex mtx_solve_dgp_;            // Mutex for the solveDGP
+  std::mutex mtx_solve_hgp_;            // Mutex for the solveDGP
   std::mutex mtx_global_path_;          // Mutex for the global_path_
   std::mutex mtx_original_global_path_; // Mutex for the original_global_path_
   std::mutex mtx_lookahead_point_;      // Mutex for the pure_pursuit_lookahead_point_
@@ -231,7 +231,7 @@ private:
 
   // Map size
   bool map_size_initialized_ = false; // Map size initialized
-  int dgp_failure_count_ = 0;         // DGP failure count used for map size adaptation
+  int hgp_failure_count_ = 0;         // DGP failure count used for map size adaptation
 
   // Communication delay
   std::unordered_map<int, double> comm_delay_map_;

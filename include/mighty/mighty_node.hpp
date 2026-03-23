@@ -9,7 +9,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "mighty/mighty_type.hpp"
 #include "mighty/mighty.hpp"
-#include "dgp/utils.hpp"
+#include "hgp/utils.hpp"
 #include <dynus_interfaces/msg/dyn_traj.hpp>
 #include <dynus_interfaces/msg/dyn_traj_array.hpp>
 #include "dynus_interfaces/msg/state.hpp"
@@ -106,6 +106,7 @@ namespace mighty
         void getInitialPoseHwCallback();
         void frameAlignCallback(const geometry_msgs::msg::TransformStamped::SharedPtr msg, int agent_id);
         void applyFrameAlignTransform(std::shared_ptr<dynTraj> &traj, int sender_id);
+        void applyTransformToTraj(std::shared_ptr<dynTraj> &traj, const Eigen::Matrix4d &T);
 
         // Others
         void declareParameters();                                                                       
@@ -139,8 +140,7 @@ namespace mighty
         void publishState(const state &data, const rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr &publisher) const;
         void publishFOV();
         void publisCps();
-        void publishHeatMap();
-        void publishDynamicHeatCloud();
+        void publishHeatCloud();
         void publishStaticPushPoints();
         void publishLocalGlobalPath();
         void publishVelocityInText(const Eigen::Vector3d &position, double velocity);
@@ -191,8 +191,7 @@ namespace mighty
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_dynamic_map_marker_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_free_map_marker_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_unknown_map_marker_;
-        rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_heat_map_marker_;
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_dynamic_heat_cloud_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_heat_cloud_;
         rclcpp::Publisher<decomp_ros_msgs::msg::PolyhedronArray>::SharedPtr pub_poly_whole_;
         rclcpp::Publisher<decomp_ros_msgs::msg::PolyhedronArray>::SharedPtr pub_poly_safe_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_traj_committed_colored_;
@@ -281,10 +280,10 @@ namespace mighty
 
         // Record computation time
         double global_planning_time_ = 0.0;
-        double dgp_static_jps_time_ = 0.0;
-        double dgp_check_path_time_ = 0.0;
-        double dgp_dynamic_astar_time_ = 0.0;
-        double dgp_recover_path_time_ = 0.0;
+        double hgp_static_jps_time_ = 0.0;
+        double hgp_check_path_time_ = 0.0;
+        double hgp_dynamic_astar_time_ = 0.0;
+        double hgp_recover_path_time_ = 0.0;
         double cvx_decomp_time_ = 0.0;
         double initial_guess_computation_time_ = 0.0; // Time for computing initial guess
         double local_traj_computation_time_ = 0.0;
@@ -350,6 +349,10 @@ namespace mighty
         std::unordered_map<int, Eigen::Matrix4d> frame_align_transforms_;
         std::unordered_map<int, bool> frame_align_received_;
         std::mutex frame_align_mutex_;
+
+        // Simulated frame offset matrix (for testing frame alignment in fake_sim)
+        Eigen::Matrix4d sim_frame_offset_{Eigen::Matrix4d::Identity()};
+        Eigen::Matrix4d sim_frame_offset_inv_{Eigen::Matrix4d::Identity()};
 
         // Timer to make sure we don't sample point cloud too often
         rclcpp::Time last_lidar_callback_time_;

@@ -52,7 +52,7 @@ link_directories(${PCL_LIBRARY_DIRS} ${BOOST_LIBRARY_DIRS} ${GAZEBO_LIBRARY_DIRS
 add_definitions(${PCL_DEFINITIONS})
 
 # add executables
-add_executable(mighty src/mighty/mighty_node.cpp src/mighty/mighty.cpp src/dgp/dgp_manager.cpp src/dgp/utils.cpp src/dgp/dgp_planner.cpp src/dgp/graph_search.cpp src/mighty/utils.cpp src/mighty/lbfgs_solver.cpp src/mighty/lbfgs_solver_utils.cpp)
+add_executable(mighty src/mighty/mighty_node.cpp src/mighty/mighty.cpp src/hgp/hgp_manager.cpp src/hgp/utils.cpp src/hgp/hgp_planner.cpp src/hgp/graph_search.cpp src/mighty/utils.cpp src/mighty/lbfgs_solver.cpp src/mighty/lbfgs_solver_utils.cpp)
 target_link_libraries(mighty ${PCL_LIBRARIES})
 ament_target_dependencies(mighty rclcpp example_interfaces dynus_interfaces visualization_msgs Eigen3 decomp_ros_msgs sensor_msgs std_msgs decomp_rviz_plugins decomp_test_node tf2_geometry_msgs tf2 tf2_ros tf2_eigen std_srvs pcl_ros)
 
@@ -62,7 +62,7 @@ target_link_libraries(fake_sim)
 ament_target_dependencies(fake_sim rclcpp rclcpp_components visualization_msgs dynus_interfaces sensor_msgs gazebo_msgs sensor_msgs tf2 tf2_ros nav_msgs)
 
 # Add the obstracle tracker
-add_executable(obstacle_tracker_node src/mighty/obstacle_tracker_node.cpp src/dgp/utils.cpp src/mighty/utils.cpp)
+add_executable(obstacle_tracker_node src/mighty/obstacle_tracker_node.cpp src/hgp/utils.cpp src/mighty/utils.cpp)
 target_link_libraries(obstacle_tracker_node ${PCL_LIBRARIES})
 ament_target_dependencies(obstacle_tracker_node rclcpp rclcpp_components visualization_msgs Eigen3 dynus_interfaces std_msgs gazebo_msgs sensor_msgs tf2 tf2_ros pcl_conversions tf2_geometry_msgs tf2_eigen)
 

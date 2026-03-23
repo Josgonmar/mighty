@@ -17,44 +17,52 @@ def generate_launch_description():
         ),
     )
 
-    # ── 2. Agent RR01 ───────────────────────────────────────────────────
+    # ── 2. Agent RR01 (frame rotated +45° from world) ────────────────────
+    #  sim_frame_offset = world→RR01/map = +45° about Z
+    #  sin(22.5°) = 0.3826834, cos(22.5°) = 0.9238795
     rr01 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(mighty_dir, 'launch', 'onboard_mighty.launch.py')
         ),
         launch_arguments={
             'namespace': 'RR01',
-            'x': '0.0',
+            'x': '10.0',
             'y': '0.0',
-            'z': '1.0',
+            'z': '0.5',
             'yaw': '0',
             'sim_env': 'fake_sim',
             'map_frame_id': 'RR01/map',
             'num_agents': '2',
             'use_frame_alignment': 'true',
+            'sim_frame_offset_qz': '0.3826834',
+            'sim_frame_offset_qw': '0.9238795',
         }.items(),
     )
 
-    # ── 3. Agent RR02 (delayed 5 s so RR01 is up first) ─────────────────
+    # ── 3. Agent RR02 (frame rotated -45° from world) ─────────────────────
+    #  sim_frame_offset = world→RR02/map = -45° about Z
+    #  Total offset between RR01 and RR02: 90°
     rr02 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(mighty_dir, 'launch', 'onboard_mighty.launch.py')
         ),
         launch_arguments={
             'namespace': 'RR02',
-            'x': '0.0',
+            'x': '-10.0',
             'y': '0.0',
-            'z': '1.0',
+            'z': '0.5',
             'yaw': '0',
             'sim_env': 'fake_sim',
             'map_frame_id': 'RR02/map',
             'num_agents': '2',
             'use_frame_alignment': 'true',
+            'sim_frame_offset_qz': '-0.3826834',
+            'sim_frame_offset_qw': '0.9238795',
         }.items(),
     )
 
-    # ── 4. Frame-alignment publishers (ground-truth transforms) ──────────
-    #  T^{RR01/map}_{RR02/map}: R=Rz(90°), t=[5,0,0]
+    # ── 4. Frame-alignment publishers (90° yaw offset) ───────────────────
+    #  T^{RR01/map}_{RR02/map}: RR02/map → RR01/map = 90° CCW rotation about Z
     fa_rr01_rr02 = Node(
         package='mighty',
         executable='frame_align_publisher.py',
@@ -63,17 +71,17 @@ def generate_launch_description():
         parameters=[{
             'ego_name': 'RR01',
             'other_name': 'RR02',
-            'tx': 5.0,
+            'tx': 0.0,
             'ty': 0.0,
             'tz': 0.0,
             'qx': 0.0,
             'qy': 0.0,
-            'qz': 0.7071,
-            'qw': 0.7071,
+            'qz': 0.7071068,
+            'qw': 0.7071068,
         }],
     )
 
-    #  T^{RR02/map}_{RR01/map}: R=Rz(-90°), t=[0,5,0]
+    #  T^{RR02/map}_{RR01/map}: RR01/map → RR02/map = -90° rotation about Z (inverse)
     fa_rr02_rr01 = Node(
         package='mighty',
         executable='frame_align_publisher.py',
@@ -83,40 +91,53 @@ def generate_launch_description():
             'ego_name': 'RR02',
             'other_name': 'RR01',
             'tx': 0.0,
-            'ty': 5.0,
+            'ty': 0.0,
             'tz': 0.0,
             'qx': 0.0,
             'qy': 0.0,
-            'qz': -0.7071,
-            'qw': 0.7071,
+            'qz': -0.7071068,
+            'qw': 0.7071068,
         }],
     )
 
     # ── Static TFs so RViz can use "map" as fixed frame ────────────────
-    #  map → RR01/map  (identity — RR01's frame IS the world frame)
+    #  map → RR01/map  (identity)
     static_tf_map_rr01 = Node(
         package='tf2_ros', executable='static_transform_publisher',
         name='static_tf_map_rr01', output='screen',
         arguments=['0','0','0','0','0','0','1', 'map', 'RR01/map'],
     )
-    #  map → RR02/map  (RR02's origin is at [5,0,0] rotated 90° yaw in world)
+    #  map → RR02/map  (identity — fake_sim data is already in world frame)
     static_tf_map_rr02 = Node(
         package='tf2_ros', executable='static_transform_publisher',
         name='static_tf_map_rr02', output='screen',
-        arguments=['5','0','0','0','0','0.7071','0.7071', 'map', 'RR02/map'],
+        arguments=['0','0','0','0','0','0','1', 'map', 'RR02/map'],
     )
 
-    # ── 5. Goal sender (use_hardware=true so goals use {agent}/map) ──────
-    goal_sender = Node(
+    # ── 5. Goal monitors (use_hardware=false: identity → map = {agent}/map)
+    goal_monitor_rr01 = Node(
         package='mighty',
-        executable='goal_sender.py',
-        name='goal_sender',
+        executable='goal_monitor_node.py',
+        namespace='RR01',
+        name='goal_monitor_node',
         output='screen',
         parameters=[{
-            'list_agents': ['RR01', 'RR02'],
-            'list_goals': ['[5.0, 5.0]', '[-5.0, -5.0]'],
-            'default_goal_z': 1.0,
-            'use_hardware': True,
+            'use_hardware': False,
+            'num_agents': 2,
+            'radius': 10.0,
+        }],
+    )
+
+    goal_monitor_rr02 = Node(
+        package='mighty',
+        executable='goal_monitor_node.py',
+        namespace='RR02',
+        name='goal_monitor_node',
+        output='screen',
+        parameters=[{
+            'use_hardware': False,
+            'num_agents': 2,
+            'radius': 10.0,
         }],
     )
 
@@ -131,6 +152,6 @@ def generate_launch_description():
         TimerAction(period=8.0, actions=[rr02]),
         # Frame-alignment publishers after 10 s
         TimerAction(period=10.0, actions=[fa_rr01_rr02, fa_rr02_rr01]),
-        # Goals after 15 s
-        TimerAction(period=15.0, actions=[goal_sender]),
+        # Goal monitors after 15 s
+        TimerAction(period=15.0, actions=[goal_monitor_rr01, goal_monitor_rr02]),
     ])

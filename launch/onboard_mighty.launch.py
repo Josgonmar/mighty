@@ -45,6 +45,10 @@ def generate_launch_description():
         description='Override map frame ID (empty = auto from use_hardware)')
     use_frame_alignment_arg = DeclareLaunchArgument('use_frame_alignment', default_value='',
         description='Override use_frame_alignment (empty = use config default)')
+    sim_frame_offset_qz_arg = DeclareLaunchArgument('sim_frame_offset_qz', default_value='',
+        description='Simulated frame offset qz (empty = use config default)')
+    sim_frame_offset_qw_arg = DeclareLaunchArgument('sim_frame_offset_qw', default_value='',
+        description='Simulated frame offset qw (empty = use config default)')
 
     # Need to be the same as simulartor.launch.py
     map_size_x_arg = DeclareLaunchArgument('map_size_x', default_value='20.0')
@@ -81,6 +85,8 @@ def generate_launch_description():
         num_agents = int(LaunchConfiguration('num_agents').perform(context))
         map_frame_id_override = LaunchConfiguration('map_frame_id').perform(context)
         use_frame_alignment_str = LaunchConfiguration('use_frame_alignment').perform(context)
+        sim_frame_offset_qz_str = LaunchConfiguration('sim_frame_offset_qz').perform(context)
+        sim_frame_offset_qw_str = LaunchConfiguration('sim_frame_offset_qw').perform(context)
 
         # The path to the urdf file - select based on robot type
         urdf_filename = 'p3at.urdf.xacro' if use_ground_robot else 'quadrotor.urdf.xacro'
@@ -126,6 +132,10 @@ def generate_launch_description():
         parameters['num_agents'] = num_agents
         if use_frame_alignment_str:
             parameters['use_frame_alignment'] = convert_str_to_bool(use_frame_alignment_str)
+        if sim_frame_offset_qz_str:
+            parameters['sim_frame_offset_qz'] = float(sim_frame_offset_qz_str)
+        if sim_frame_offset_qw_str:
+            parameters['sim_frame_offset_qw'] = float(sim_frame_offset_qw_str)
 
         # Lidar topic remapping for hardware vs simulation
         lidar_point_cloud_topic = 'livox/lidar' if use_hardware else 'mid360_PointCloud2'
@@ -350,5 +360,7 @@ def generate_launch_description():
         num_agents_arg,
         map_frame_id_arg,
         use_frame_alignment_arg,
+        sim_frame_offset_qz_arg,
+        sim_frame_offset_qw_arg,
         OpaqueFunction(function=launch_setup)
     ])

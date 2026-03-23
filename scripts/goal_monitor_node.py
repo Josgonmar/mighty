@@ -28,66 +28,48 @@ class GoalMonitorNode(Node):
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
         self.declare_parameter('use_hardware', False)
         self.use_hardware = self.get_parameter('use_hardware').value
+        self.declare_parameter('num_agents', 10)
+        num_agents = self.get_parameter('num_agents').value
+        self.declare_parameter('radius', 10.0)
+        radius = self.get_parameter('radius').value
         self.distance_check_frequency = 1.0  # Frequency to check the distance to the goal
         self.current_goal_index = 0
 
-        # Define goal points (x, y, z) in the world frame
-        # Agents are on a circle of radius 10.0 at z=1.0 and swap with their opposite partner (i <-> i+5).
-
-        if self.namespace == 'NX01':
-            # start: ( 10.000,  0.000) ↔ opposite: (-10.000,  0.000) (NX06)
-            self.goal_points = [[-10.000,  0.000, 1.0], [ 10.000,  0.000, 1.0]]
-
-        elif self.namespace == 'NX02':
-            # start: (  8.090,  5.878) ↔ opposite: ( -8.090, -5.878) (NX07)
-            self.goal_points = [[ -8.090, -5.878, 1.0], [  8.090,  5.878, 1.0]]
-
-        elif self.namespace == 'NX03':
-            # start: (  3.090,  9.511) ↔ opposite: ( -3.090, -9.511) (NX08)
-            self.goal_points = [[ -3.090, -9.511, 1.0], [  3.090,  9.511, 1.0]]
-
-        elif self.namespace == 'NX04':
-            # start: ( -3.090,  9.511) ↔ opposite: (  3.090, -9.511) (NX09)
-            self.goal_points = [[  3.090, -9.511, 1.0], [ -3.090,  9.511, 1.0]]
-
-        elif self.namespace == 'NX05':
-            # start: ( -8.090,  5.878) ↔ opposite: (  8.090, -5.878) (NX10)
-            self.goal_points = [[  8.090, -5.878, 1.0], [ -8.090,  5.878, 1.0]]
-
-        elif self.namespace == 'NX06':
-            # opposite of NX01
-            self.goal_points = [[ 10.000,  0.000, 1.0], [-10.000,  0.000, 1.0]]
-
-        elif self.namespace == 'NX07':
-            # opposite of NX02
-            self.goal_points = [[  8.090,  5.878, 1.0], [ -8.090, -5.878, 1.0]]
-
-        elif self.namespace == 'NX08':
-            # opposite of NX03
-            self.goal_points = [[  3.090,  9.511, 1.0], [ -3.090, -9.511, 1.0]]
-
-        elif self.namespace == 'NX09':
-            # opposite of NX04
-            self.goal_points = [[ -3.090,  9.511, 1.0], [  3.090, -9.511, 1.0]]
-
-        elif self.namespace == 'NX10':
-            # opposite of NX05
-            self.goal_points = [[ -8.090,  5.878, 1.0], [  8.090, -5.878, 1.0]]
+        # Compute swap goals dynamically based on circle formation.
+        # Agent i sits at angle = 2*pi*(i-1)/N on a circle of the given radius;
+        # its swap target is the diametrically opposite point (angle + pi).
+        if self.namespace.startswith('NX'):
+            agent_index = int(self.namespace[2:])  # NX01 -> 1
+            z = 1.0
+            angle = 2.0 * math.pi * (agent_index - 1) / num_agents
+            own_x = round(radius * math.cos(angle), 3)
+            own_y = round(radius * math.sin(angle), 3)
+            opp_x = round(radius * math.cos(angle + math.pi), 3)
+            opp_y = round(radius * math.sin(angle + math.pi), 3)
+            self.goal_points = [[opp_x, opp_y, z], [own_x, own_y, z]]
+            self.get_logger().info(
+                f"Circle swap goals (N={num_agents}, R={radius}): "
+                f"start ({own_x},{own_y}) <-> opposite ({opp_x},{opp_y})")
 
         elif self.namespace.startswith('RR'):
-            # RR01–RR10: line pattern [0,0,0.5] → [8,0,0.5]
-            self.goal_points = [[8.0, 0.0, 0.5], [0.0, 0.0, 0.5]]
+            agent_index = int(self.namespace[2:])  # RR01 -> 1
+            z = 0.5
+            angle = 2.0 * math.pi * (agent_index - 1) / num_agents
+            own_x = round(radius * math.cos(angle), 3)
+            own_y = round(radius * math.sin(angle), 3)
+            opp_x = round(radius * math.cos(angle + math.pi), 3)
+            opp_y = round(radius * math.sin(angle + math.pi), 3)
+            self.goal_points = [[opp_x, opp_y, z], [own_x, own_y, z]]
+            self.get_logger().info(
+                f"Circle swap goals (N={num_agents}, R={radius}): "
+                f"start ({own_x},{own_y}) <-> opposite ({opp_x},{opp_y})")
 
         else:
             self.get_logger().error(f"Unknown namespace: {self.namespace}. No goal points defined.")
-            self.goal_points = [[0.0, 0.0, 0.0]]  # Default goal point if namespace is unknown
+            self.goal_points = [[0.0, 0.0, 0.0]]
 
-        # repeat the two-goal pattern N times
-        num_iterations = 3
-        self.goal_points = self.goal_points * num_iterations
-
-        # repeat pattern
-        num_iterations = 3
+        # Repeat the two-goal swap pattern
+        num_iterations = 9
         self.goal_points = self.goal_points * num_iterations
 
         # Publishers and Subscribers

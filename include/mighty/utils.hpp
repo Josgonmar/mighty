@@ -18,7 +18,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <mighty/mighty_type.hpp>
-#include <dgp/utils.hpp>
+#include <hgp/utils.hpp>
 #include <deque>
 
 #include "dynus_interfaces/msg/pwp_traj.hpp"

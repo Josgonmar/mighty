@@ -20,13 +20,25 @@ def generate_launch_description():
         default_value='false',
         description='Use hardware mode (affects goal frame_id)'
     )
+    num_agents_arg = DeclareLaunchArgument(
+        'num_agents',
+        default_value='10',
+        description='Number of agents (must match the actual number launched)'
+    )
+    radius_arg = DeclareLaunchArgument(
+        'radius',
+        default_value='10.0',
+        description='Circle formation radius'
+    )
 
     def launch_setup(context):
         prefix = LaunchConfiguration('agent_prefix').perform(context)
         use_hardware = LaunchConfiguration('use_hardware').perform(context)
         goal_tolerance = LaunchConfiguration('goal_tolerance').perform(context)
+        num_agents = int(LaunchConfiguration('num_agents').perform(context))
+        radius = float(LaunchConfiguration('radius').perform(context))
 
-        namespaces = [f'{prefix}{i:02d}' for i in range(1, 11)]
+        namespaces = [f'{prefix}{i:02d}' for i in range(1, num_agents + 1)]
 
         nodes = []
         for ns in namespaces:
@@ -40,6 +52,8 @@ def generate_launch_description():
                     parameters=[{
                         'goal_tolerance': float(goal_tolerance),
                         'use_hardware': use_hardware.lower() in ('true', '1'),
+                        'num_agents': num_agents,
+                        'radius': radius,
                     }]
                 )
             )
@@ -49,5 +63,7 @@ def generate_launch_description():
         goal_tol_arg,
         agent_prefix_arg,
         use_hardware_arg,
+        num_agents_arg,
+        radius_arg,
         OpaqueFunction(function=launch_setup),
     ])

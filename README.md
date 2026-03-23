@@ -206,7 +206,7 @@ python3 src/mighty/scripts/run_sim.py --mode gazebo -s ~/code/mighty_ws/install/
   --num-agents, -n    Number of agents for multiagent mode (default: 10)
   --radius, -r        Circle radius for multiagent formation (default: 10)
   --env, -e           Gazebo environment (default: hard_forest)
-  --ros-domain-id     ROS_DOMAIN_ID (default: 7)
+  --ros-domain-id     ROS_DOMAIN_ID (default: 20)
   --no-rviz           Disable RViz
   --gazebo-gui        Enable Gazebo GUI
   --dry-run           Print generated YAML without launching
