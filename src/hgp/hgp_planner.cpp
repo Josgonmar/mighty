@@ -323,25 +323,43 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   raw_path_.clear();
   status_ = 0;
 
-  const Veci<3> start_int = map_util_->floatToInt(start);
-  if (map_util_->isOutside(start_int) ||
-      (!map_util_->useSoftCostObstacles() && map_util_->isOccupied(start_int))) {
-    if (planner_verbose_) {
-      if (map_util_->isOccupied(start_int))
-        printf(ANSI_COLOR_RED "start is occupied!\n" ANSI_COLOR_RESET);
-      else if (map_util_->isUnknown(start_int))
-        printf(ANSI_COLOR_RED "start is unknown!\n" ANSI_COLOR_RESET);
-      else {
-        printf(ANSI_COLOR_RED "start is outside!\n" ANSI_COLOR_RESET);
-        std::cout << "start: " << start.transpose() << std::endl;
-        std::cout << "start_int: " << start_int.transpose() << std::endl;
-        std::cout << "Map origin: " << map_util_->getOrigin().transpose() << std::endl;
-        std::cout << "Map dim: " << map_util_->getDim().transpose() << std::endl;
-      }
+  Veci<3> start_int = map_util_->floatToInt(start);
+
+  // In 2D mode, validate against 2D map instead of 3D map (ground points would block start/goal)
+  if (is_2d_mode_ && map_util_->has2DMap()) {
+    // Check 2D occupancy for start
+    const int sx = start_int(0), sy = start_int(1);
+    const Veci<3> dim = map_util_->getDim();
+    if (sx < 0 || sx >= dim(0) || sy < 0 || sy >= dim(1)) {
+      std::cout << bold << red << "Start is outside 2D map" << reset << std::endl;
+      status_ = 1;
+      return false;
     }
-    status_ = 1;
-    std::cout << bold << red << "Start is not free" << reset << std::endl;
-    return false;
+    if (!map_util_->useSoftCostObstacles() && map_util_->get2DOccupancy(sx, sy) != 0) {
+      std::cout << bold << red << "Start is occupied in 2D map" << reset << std::endl;
+      status_ = 1;
+      return false;
+    }
+  } else {
+    if (map_util_->isOutside(start_int) ||
+        (!map_util_->useSoftCostObstacles() && map_util_->isOccupied(start_int))) {
+      if (planner_verbose_) {
+        if (map_util_->isOccupied(start_int))
+          printf(ANSI_COLOR_RED "start is occupied!\n" ANSI_COLOR_RESET);
+        else if (map_util_->isUnknown(start_int))
+          printf(ANSI_COLOR_RED "start is unknown!\n" ANSI_COLOR_RESET);
+        else {
+          printf(ANSI_COLOR_RED "start is outside!\n" ANSI_COLOR_RESET);
+          std::cout << "start: " << start.transpose() << std::endl;
+          std::cout << "start_int: " << start_int.transpose() << std::endl;
+          std::cout << "Map origin: " << map_util_->getOrigin().transpose() << std::endl;
+          std::cout << "Map dim: " << map_util_->getDim().transpose() << std::endl;
+        }
+      }
+      status_ = 1;
+      std::cout << bold << red << "Start is not free" << reset << std::endl;
+      return false;
+    }
   }
 
   Veci<3> goal_int = map_util_->floatToInt(goal);
@@ -353,7 +371,14 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   }
 
   // In non-soft-cost mode, reject if goal cell is occupied
-  if (!map_util_->useSoftCostObstacles() && map_util_->isOccupied(goal_int)) {
+  if (is_2d_mode_ && map_util_->has2DMap()) {
+    const int gx = goal_int(0), gy = goal_int(1);
+    if (!map_util_->useSoftCostObstacles() && map_util_->get2DOccupancy(gx, gy) != 0) {
+      std::cout << bold << red << "Goal is occupied in 2D map" << reset << std::endl;
+      status_ = 2;
+      return false;
+    }
+  } else if (!map_util_->useSoftCostObstacles() && map_util_->isOccupied(goal_int)) {
     std::cout << bold << red << "goal is occupied!"
               << " goal=" << goal.transpose() << " goal_int=" << goal_int.transpose() << reset
               << std::endl;
@@ -370,18 +395,31 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   // grid)
   double initial_g = (start - map_util_->intToFloat(start_int)).norm();
 
+  // In 2D mode, use the projected 2D map with zDim=1
+  const int zDim_for_search = is_2d_mode_ ? 1 : dim(2);
+  const int8_t* cMap_for_search = nullptr;
+  if (is_2d_mode_ && map_util_->has2DMap()) {
+    cMap_for_search = map_util_->get2DMapData();
+  } else {
+    cMap_for_search = (map_util_->map_).data();
+  }
+
   // should we initialize the planner in constructor?
-  graph_search_ = std::make_shared<mighty::GraphSearch>((map_util_->map_).data(), map_util_, dim(0),
-                                                       dim(1), dim(2), eps, planner_verbose_,
+  graph_search_ = std::make_shared<mighty::GraphSearch>(cMap_for_search, map_util_, dim(0),
+                                                       dim(1), zDim_for_search, eps, planner_verbose_,
                                                        global_planner_, w_unknown_);
   graph_search_->setStartAndGoal(start, goal);
   double max_values[3] = {v_max_, a_max_, j_max_};
   graph_search_->setBounds(max_values);
 
+  // In 2D mode, force start/goal z to 0
+  const int sz = is_2d_mode_ ? 0 : start_int(2);
+  const int gz = is_2d_mode_ ? 0 : goal_int(2);
+
   // Run global plan module
   int max_expand = max_expand_;
-  graph_search_->plan(start_int(0), start_int(1), start_int(2), goal_int(0), goal_int(1),
-                      goal_int(2), initial_g, global_planning_time_, hgp_static_jps_time_,
+  graph_search_->plan(start_int(0), start_int(1), sz, goal_int(0), goal_int(1),
+                      gz, initial_g, global_planning_time_, hgp_static_jps_time_,
                       hgp_check_path_time_, hgp_dynamic_astar_time_, hgp_recover_path_time_,
                       current_time, start_vel, max_expand, hgp_timeout_duration_ms_);
 
@@ -402,13 +440,24 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   for (const auto& it : path) {
     Veci<3> pn;
     pn << it->x, it->y, it->z;
-    ps.push_back(map_util_->intToFloat(pn));
+    Vecf<3> pt = map_util_->intToFloat(pn);
+    if (is_2d_mode_) {
+      // In 2D mode, project path to z=0 reference plane
+      pt(2) = 0.0;
+    }
+    ps.push_back(pt);
   }
 
   raw_path_ = ps;
   std::reverse(std::begin(raw_path_), std::end(raw_path_));
 
-  if (global_planner_ == "sjps" || global_planner_ == "sastar") {
+  if (is_2d_mode_) {
+    // In 2D mode, skip 3D LoS shortcutting (it uses the 3D map which has ground points).
+    // Just do basic path cleanup.
+    auto tmp = raw_path_;
+    cleanUpPath(tmp);
+    path_ = tmp;
+  } else if (global_planner_ == "sjps" || global_planner_ == "sastar") {
     // 1) coarse LoS shortcut with inflation
     path_ = shortCutByLoS(raw_path_, los_cells_);
 

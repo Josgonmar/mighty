@@ -38,10 +38,12 @@ GraphSearch::GraphSearch(const int8_t* cMap, const std::shared_ptr<mighty::Voxel
   hm_.assign(xDim_ * yDim_ * zDim_, nullptr);
   seen_.assign(xDim_ * yDim_ * zDim_, false);
 
-  // Set 3D neighbors
+  // Set neighbors: 2D (8-connected) when zDim==1, else 3D (26-connected)
   for (int x = -1; x <= 1; x++) {
     for (int y = -1; y <= 1; y++) {
-      for (int z = -1; z <= 1; z++) {
+      const int z_lo = (zDim_ == 1) ? 0 : -1;
+      const int z_hi = (zDim_ == 1) ? 0 :  1;
+      for (int z = z_lo; z <= z_hi; z++) {
         if (x == 0 && y == 0 && z == 0) continue;
         ns_.push_back(std::vector<int>{x, y, z});
       }

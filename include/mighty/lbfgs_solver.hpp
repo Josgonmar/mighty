@@ -78,6 +78,7 @@ namespace lbfgs
         double f_max = 20.0;                   // max thrust in N
         double mass = 1.0;                     // mass in kg
         double g = 9.81;                       // gravity in m/s^2
+        bool is_2d_mode = false;               // 2D ground robot planning mode
     };
 
     class SolverLBFGS
@@ -639,6 +640,7 @@ namespace lbfgs
         int K_cp_;            // Number of control points
         int K_sig_;           // Number of slack times (K_sig_ = M_)
         bool verbose_{false}; // Verbosity flag
+        bool is_2d_mode_{false}; // 2D ground robot planning mode
 
         // Ego-agent boundary conditions
         Vec3 x0_;

@@ -333,6 +333,20 @@ class HGPManager {
   const Eigen::Vector3d unitY_ = Eigen::Vector3d::UnitY();
   const Eigen::Vector3d unitZ_ = Eigen::Vector3d::UnitZ();
 
-  // Flats
+  // Flags
   bool map_initialized_ = false;
+  bool is_ground_robot_ = false;
+
+ public:
+  /** @brief Check if 2D ground robot planning mode is active. */
+  bool isGroundRobot() const { return is_ground_robot_; }
+
+  /** @brief Get terrain height at world coordinates (delegates to map_util).
+   *  Thread-safe: uses planning map if available.
+   */
+  float getTerrainHeightWorld(float wx, float wy) const {
+    const auto& mu = map_util_for_planning_ ? map_util_for_planning_ : map_util_;
+    if (!mu || !mu->has2DMap()) return 0.0f;
+    return mu->getTerrainHeightWorld(wx, wy);
+  }
 };

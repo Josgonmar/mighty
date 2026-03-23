@@ -23,6 +23,9 @@ void HGPManager::setParameters(const parameters& par) {
   // Get the parameter
   par_ = par;
 
+  // Set the 2D ground robot flag
+  is_ground_robot_ = (par.vehicle_type == "ground_robot" && par.use_2d_planning);
+
   // Set the parameters
   res_ = par.res;
   drone_radius_ = par.drone_radius;
@@ -118,6 +121,9 @@ void HGPManager::setupHGPPlanner(const std::string& global_planner, bool global_
   // Set max node expansion
   planner_ptr_->setMaxExpand(max_num_expansion);
 
+  // Enable 2D mode for ground robots
+  planner_ptr_->set2DMode(is_ground_robot_);
+
   // Create the map_util_for_planning
   // This is the beginning of the planning, so we fetch the map_util_ and don't update it for the
   // entire planning process (updating while planning makes the planner slower)
@@ -134,15 +140,25 @@ void HGPManager::updateVmax(double v_max) {
 }
 
 void HGPManager::freeStart(Vec3f& start, double factor) {
-  // Set start free
+  // Set start free in 3D map
   Veci<3> start_int = map_util_for_planning_->floatToInt(start);
   map_util_for_planning_->setFreeVoxelAndSurroundings(start_int, factor * res_);
+
+  // Also free in 2D map if ground robot mode
+  if (is_ground_robot_ && map_util_for_planning_->has2DMap()) {
+    map_util_for_planning_->free2DCell(start_int(0), start_int(1), factor * res_);
+  }
 }
 
 void HGPManager::freeGoal(Vec3f& goal, double factor) {
-  // Set goal free
+  // Set goal free in 3D map
   Veci<3> goal_int = map_util_for_planning_->floatToInt(goal);
   map_util_for_planning_->setFreeVoxelAndSurroundings(goal_int, factor * res_);
+
+  // Also free in 2D map if ground robot mode
+  if (is_ground_robot_ && map_util_for_planning_->has2DMap()) {
+    map_util_for_planning_->free2DCell(goal_int(0), goal_int(1), factor * res_);
+  }
 }
 
 bool HGPManager::checkIfPointOccupied(const Vec3f& point) {
@@ -225,9 +241,27 @@ bool HGPManager::solveHGP(const Vec3f& start_sent, const Vec3f& start_vel, const
     map_util_for_planning_ = std::make_shared<mighty::VoxelMapUtil>(*map_util_);
   }
 
-  // Set start and goal
-  Eigen::Vector3d start(start_sent(0), start_sent(1), start_sent(2));
-  Eigen::Vector3d goal(goal_sent(0), goal_sent(1), goal_sent(2));
+  // Set start and goal — in 2D mode, force z=0 for the search reference plane
+  Vec3f start_for_search = start_sent;
+  Vec3f goal_for_search = goal_sent;
+  if (is_ground_robot_) {
+    start_for_search(2) = 0.0f;
+    goal_for_search(2) = 0.0f;
+
+    // Free start/goal in the 2D map — ground points would otherwise block them.
+    // (freeStart/freeGoal ran on the previous map_util_for_planning_ which we just overwrote)
+    if (map_util_for_planning_->has2DMap()) {
+      Veci<3> si = map_util_for_planning_->floatToInt(start_for_search);
+      map_util_for_planning_->free2DCell(si(0), si(1), 2.0f * res_);
+      map_util_for_planning_->setFreeVoxelAndSurroundings(si, 2.0f * res_);
+      Veci<3> gi = map_util_for_planning_->floatToInt(goal_for_search);
+      map_util_for_planning_->free2DCell(gi(0), gi(1), 2.0f * res_);
+      map_util_for_planning_->setFreeVoxelAndSurroundings(gi, 2.0f * res_);
+    }
+  }
+
+  Eigen::Vector3d start(start_for_search(0), start_for_search(1), start_for_search(2));
+  Eigen::Vector3d goal(goal_for_search(0), goal_for_search(1), goal_for_search(2));
 
   // Set collision checking function
   planner_ptr_->setMapUtil(map_util_for_planning_);
@@ -251,6 +285,16 @@ bool HGPManager::solveHGP(const Vec3f& start_sent, const Vec3f& start_vel, const
   // (can arise from createMoreVertexes remainders or post-processing steps after
   // collapseShortEdges)
   path = planner_ptr_->collapseShortEdges(path, par_.min_len);
+
+  // In 2D mode, lift path waypoints from z=0 reference to terrain height
+  if (is_ground_robot_ && map_util_for_planning_->has2DMap()) {
+    for (auto& wp : path) {
+      wp(2) = map_util_for_planning_->getTerrainHeightWorld(wp(0), wp(1));
+    }
+    for (auto& wp : raw_path) {
+      wp(2) = map_util_for_planning_->getTerrainHeightWorld(wp(0), wp(1));
+    }
+  }
 
   return result;
 }
@@ -369,8 +413,15 @@ bool HGPManager::cvxEllipsoidDecomp(EllipsoidDecomp3D& ellip, const vec_Vecf<3>&
   }
 
   // Configure ellipsoid-decomp settings on the per-worker instance
-  ellip.set_local_bbox(Vec3f(local_box_size_[0], local_box_size_[1], local_box_size_[2]));
-  ellip.set_z_min_and_max(par_.z_min, par_.z_max);
+  const float slab_margin = static_cast<float>(par_.ground_slab_margin);
+  if (is_ground_robot_) {
+    // In 2D mode, use a thin z-slab for the local bounding box
+    ellip.set_local_bbox(Vec3f(local_box_size_[0], local_box_size_[1], 2.0f * slab_margin));
+    ellip.set_z_min_and_max(-slab_margin, slab_margin);
+  } else {
+    ellip.set_local_bbox(Vec3f(local_box_size_[0], local_box_size_[1], local_box_size_[2]));
+    ellip.set_z_min_and_max(par_.z_min, par_.z_max);
+  }
   ellip.set_inflate_distance(drone_radius_);
 
   // Outputs
@@ -379,6 +430,39 @@ bool HGPManager::cvxEllipsoidDecomp(EllipsoidDecomp3D& ellip, const vec_Vecf<3>&
 
   poly_out.clear();
   poly_out.resize(num_seg);
+
+  // For 2D mode: build a projected obstacle set from 2D map at z=0 + floor/ceiling
+  vec_Vec3f base_uo_2d;
+  if (is_ground_robot_ && map_util_for_planning_ && map_util_for_planning_->has2DMap()) {
+    int dimX, dimY;
+    map_util_for_planning_->get2DDimensions(dimX, dimY);
+    const auto origin = map_util_for_planning_->getOrigin();
+    const float res = static_cast<float>(map_util_for_planning_->getRes());
+
+    // Add 2D occupied cells as obstacle points at z=0
+    for (int x = 0; x < dimX; ++x) {
+      for (int y = 0; y < dimY; ++y) {
+        if (map_util_for_planning_->get2DOccupancy(x, y) != 0) {  // not free
+          const float wx = origin(0) + (x + 0.5f) * res;
+          const float wy = origin(1) + (y + 0.5f) * res;
+          base_uo_2d.emplace_back(Vec3f(wx, wy, 0.0f));
+        }
+      }
+    }
+
+    // Add floor/ceiling virtual points covering the local window
+    const float x_lo = origin(0);
+    const float y_lo = origin(1);
+    const float x_hi = origin(0) + dimX * res;
+    const float y_hi = origin(1) + dimY * res;
+    const float floor_step = res * 2.0f;  // every 2 cells for density
+    for (float fx = x_lo; fx <= x_hi; fx += floor_step) {
+      for (float fy = y_lo; fy <= y_hi; fy += floor_step) {
+        base_uo_2d.emplace_back(Vec3f(fx, fy, -slab_margin));
+        base_uo_2d.emplace_back(Vec3f(fx, fy,  slab_margin));
+      }
+    }
+  }
 
   vec_Vecf<3> seg_path;
   seg_path.reserve(2);
@@ -391,15 +475,26 @@ bool HGPManager::cvxEllipsoidDecomp(EllipsoidDecomp3D& ellip, const vec_Vecf<3>&
       return false;
     }
 
-    // Build per-segment obstacle set = base_uo + inflated dynamic obstacle points
-    vec_Vec3f vec_uo = base_uo;  // copy snapshot
-    obstacle_to_vec(vec_uo, obst_pos, obst_bbox, traj_max_time);
+    // Build per-segment obstacle set
+    vec_Vec3f vec_uo;
+    if (is_ground_robot_ && !base_uo_2d.empty()) {
+      vec_uo = base_uo_2d;
+    } else {
+      vec_uo = base_uo;  // copy snapshot
+      obstacle_to_vec(vec_uo, obst_pos, obst_bbox, traj_max_time);
+    }
 
     ellip.set_obs(vec_uo);
 
     seg_path.clear();
-    seg_path.push_back(path[i]);
-    seg_path.push_back(path[i + 1]);
+    if (is_ground_robot_) {
+      // Project path to z=0 reference plane for 2D corridor generation
+      seg_path.push_back(Vec3f(path[i](0), path[i](1), 0.0f));
+      seg_path.push_back(Vec3f(path[i + 1](0), path[i + 1](1), 0.0f));
+    } else {
+      seg_path.push_back(path[i]);
+      seg_path.push_back(path[i + 1]);
+    }
 
     bool ok = true;
     ellip.dilate(seg_path, ok);
@@ -453,8 +548,14 @@ bool HGPManager::cvxEllipsoidDecompTimeLayered(
   if (P == 0 || N == 0) return false;
 
   // Configure ellipsoid-decomp settings on the per-worker instance (same as single-layer)
-  ellip.set_local_bbox(Vec3f(local_box_size_[0], local_box_size_[1], local_box_size_[2]));
-  ellip.set_z_min_and_max(par_.z_min, par_.z_max);
+  const float slab_margin_tl = static_cast<float>(par_.ground_slab_margin);
+  if (is_ground_robot_) {
+    ellip.set_local_bbox(Vec3f(local_box_size_[0], local_box_size_[1], 2.0f * slab_margin_tl));
+    ellip.set_z_min_and_max(-slab_margin_tl, slab_margin_tl);
+  } else {
+    ellip.set_local_bbox(Vec3f(local_box_size_[0], local_box_size_[1], local_box_size_[2]));
+    ellip.set_z_min_and_max(par_.z_min, par_.z_max);
+  }
   ellip.set_inflate_distance(drone_radius_);
 
   // Allocate outputs
@@ -465,6 +566,34 @@ bool HGPManager::cvxEllipsoidDecompTimeLayered(
   poly_out_by_time.clear();
   poly_out_by_time.resize(N);
   for (size_t n = 0; n < N; ++n) poly_out_by_time[n].resize(P);
+
+  // For 2D mode: build a projected obstacle set (reused across time layers)
+  vec_Vec3f base_uo_2d_tl;
+  if (is_ground_robot_ && map_util_for_planning_ && map_util_for_planning_->has2DMap()) {
+    int dimX, dimY;
+    map_util_for_planning_->get2DDimensions(dimX, dimY);
+    const auto origin = map_util_for_planning_->getOrigin();
+    const float res = static_cast<float>(map_util_for_planning_->getRes());
+
+    for (int x = 0; x < dimX; ++x) {
+      for (int y = 0; y < dimY; ++y) {
+        if (map_util_for_planning_->get2DOccupancy(x, y) != 0) {
+          const float wx = origin(0) + (x + 0.5f) * res;
+          const float wy = origin(1) + (y + 0.5f) * res;
+          base_uo_2d_tl.emplace_back(Vec3f(wx, wy, 0.0f));
+        }
+      }
+    }
+    const float x_lo = origin(0), y_lo = origin(1);
+    const float x_hi = origin(0) + dimX * res, y_hi = origin(1) + dimY * res;
+    const float floor_step = res * 2.0f;
+    for (float fx = x_lo; fx <= x_hi; fx += floor_step) {
+      for (float fy = y_lo; fy <= y_hi; fy += floor_step) {
+        base_uo_2d_tl.emplace_back(Vec3f(fx, fy, -slab_margin_tl));
+        base_uo_2d_tl.emplace_back(Vec3f(fx, fy,  slab_margin_tl));
+      }
+    }
+  }
 
   // Precompute per-time-layer obstacle sets (base_uo + inflated dynamic obstacle points)
   // This avoids calling obstacle_to_vec inside the inner P-loop.
@@ -479,8 +608,12 @@ bool HGPManager::cvxEllipsoidDecompTimeLayered(
       return false;
     }
 
-    uo_by_time[n] = base_uo;  // copy snapshot
-    obstacle_to_vec(uo_by_time[n], obst_pos, obst_bbox, tmax);
+    if (is_ground_robot_ && !base_uo_2d_tl.empty()) {
+      uo_by_time[n] = base_uo_2d_tl;
+    } else {
+      uo_by_time[n] = base_uo;  // copy snapshot
+      obstacle_to_vec(uo_by_time[n], obst_pos, obst_bbox, tmax);
+    }
   }
 
   vec_Vecf<3> seg_path;
@@ -492,8 +625,13 @@ bool HGPManager::cvxEllipsoidDecompTimeLayered(
 
     for (size_t p = 0; p < P; ++p) {
       seg_path.clear();
-      seg_path.push_back(path[p]);
-      seg_path.push_back(path[p + 1]);
+      if (is_ground_robot_) {
+        seg_path.push_back(Vec3f(path[p](0), path[p](1), 0.0f));
+        seg_path.push_back(Vec3f(path[p + 1](0), path[p + 1](1), 0.0f));
+      } else {
+        seg_path.push_back(path[p]);
+        seg_path.push_back(path[p + 1]);
+      }
 
       bool ok = true;
       ellip.dilate(seg_path, ok);
@@ -992,6 +1130,14 @@ void HGPManager::updateMap(double wdx, double wdy, double wdz, const Vec3f& cent
   map_util_->readMap(pclptr, pclptr_unk, (int)(wdx / res_), (int)(wdy / res_), (int)(wdz / res_),
                      center_map, par_.z_min, par_.z_max, par_.inflation_hgp, obst_pos, obst_bbox,
                      traj_max_time);
+
+  // Build 2D ground robot map if enabled
+  if (is_ground_robot_) {
+    map_util_->buildGroundMap2D(
+        static_cast<float>(par_.obstacle_min_height),
+        static_cast<float>(par_.terrain_cost_weight),
+        par_.terrain_cost_mode);
+  }
   mtx_map_util_.unlock();
 
   // Get the elapsed time for reading the map

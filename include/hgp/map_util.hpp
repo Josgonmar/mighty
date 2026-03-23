@@ -87,6 +87,12 @@ class MapUtil {
         // static_heat_mutex_ is default-constructed (mutexes cannot be copied)
         use_soft_cost_obstacles_(other.use_soft_cost_obstacles_),
         obstacle_soft_cost_(other.obstacle_soft_cost_),
+        // 2D ground robot map data
+        map_2d_(other.map_2d_),
+        terrain_cost_(other.terrain_cost_),
+        col_min_height_(other.col_min_height_),
+        col_max_height_(other.col_max_height_),
+        has_2d_map_(other.has_2d_map_),
         res_(other.res_),
         total_size_(other.total_size_),
         inflation_(other.inflation_),
@@ -1557,6 +1563,225 @@ class MapUtil {
   // Soft-cost obstacle mode
   bool use_soft_cost_obstacles_{false};
   float obstacle_soft_cost_{100.0f};
+
+  // ==================== 2D Ground Robot Map ====================
+
+  std::vector<int8_t> map_2d_;         // 2D occupancy grid (dimX * dimY)
+  std::vector<float> terrain_cost_;    // 2D terrain gradient cost (dimX * dimY)
+  std::vector<float> col_min_height_;  // Per-column min occupied z in world coords
+  std::vector<float> col_max_height_;  // Per-column max occupied z in world coords
+  bool has_2d_map_{false};
+
+  /** @brief Build a 2D ground robot map from the current 3D occupancy grid.
+   *
+   *  For each (x,y) column, computes min/max occupied z to determine:
+   *  - Hard obstacles: columns with height_span > obstacle_min_height
+   *  - Terrain cost: max or avg of height differences with 8-neighbors
+   *  - Injects terrain cost into heat_ array at z=0 for A* to use
+   *
+   *  @param obstacle_min_height Min height span [m] in a column to classify as obstacle.
+   *  @param terrain_cost_weight Multiplier for terrain gradient cost injected into heat.
+   *  @param cost_mode "max" or "avg" aggregation of neighbor height deltas.
+   */
+  void buildGroundMap2D(float obstacle_min_height, float terrain_cost_weight,
+                        const std::string& cost_mode) {
+    if (dim_(0) <= 0 || dim_(1) <= 0 || dim_(2) <= 0) return;
+
+    const int dimX = dim_(0);
+    const int dimY = dim_(1);
+    const int dimZ = dim_(2);
+    const size_t size_2d = static_cast<size_t>(dimX) * dimY;
+
+    // Allocate arrays
+    map_2d_.assign(size_2d, val_free_);
+    col_min_height_.assign(size_2d, std::numeric_limits<float>::infinity());
+    col_max_height_.assign(size_2d, -std::numeric_limits<float>::infinity());
+    terrain_cost_.assign(size_2d, 0.0f);
+
+    // Step 1: Column scan — find min/max occupied z per (x,y)
+#pragma omp parallel for collapse(2) schedule(static)
+    for (int x = 0; x < dimX; ++x) {
+      for (int y = 0; y < dimY; ++y) {
+        const size_t idx_2d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+        bool has_unknown = false;
+
+        for (int z = 0; z < dimZ; ++z) {
+          const size_t idx_3d =
+              static_cast<size_t>(x) + static_cast<size_t>(dimX) * y +
+              static_cast<size_t>(dimX) * static_cast<size_t>(dimY) * z;
+
+          if (map_[idx_3d] == val_occ_) {
+            const float world_z = origin_d_(2) + (z + 0.5f) * res_;
+            if (world_z < col_min_height_[idx_2d]) col_min_height_[idx_2d] = world_z;
+            if (world_z > col_max_height_[idx_2d]) col_max_height_[idx_2d] = world_z;
+          } else if (map_[idx_3d] == val_unknown_) {
+            has_unknown = true;
+          }
+        }
+
+        // Unknown columns → occupied for safety
+        if (has_unknown && col_max_height_[idx_2d] == -std::numeric_limits<float>::infinity()) {
+          map_2d_[idx_2d] = val_occ_;
+        }
+      }
+    }
+
+    // Step 2: Obstacle classification — columns with large height span
+#pragma omp parallel for collapse(2) schedule(static)
+    for (int x = 0; x < dimX; ++x) {
+      for (int y = 0; y < dimY; ++y) {
+        const size_t idx_2d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+        if (col_max_height_[idx_2d] > -std::numeric_limits<float>::infinity() &&
+            col_min_height_[idx_2d] < std::numeric_limits<float>::infinity()) {
+          const float height_span = col_max_height_[idx_2d] - col_min_height_[idx_2d];
+          if (height_span > obstacle_min_height) {
+            map_2d_[idx_2d] = val_occ_;
+          }
+        }
+      }
+    }
+
+    // Step 3: Terrain cost computation for free cells
+    const bool use_max = (cost_mode == "max");
+#pragma omp parallel for collapse(2) schedule(static)
+    for (int x = 0; x < dimX; ++x) {
+      for (int y = 0; y < dimY; ++y) {
+        const size_t idx_2d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+        if (map_2d_[idx_2d] != val_free_) continue;
+
+        // Skip cells with no height data
+        const float h_center = col_max_height_[idx_2d];
+        if (h_center == -std::numeric_limits<float>::infinity()) continue;
+
+        float sum_delta = 0.0f;
+        float max_delta = 0.0f;
+        int count = 0;
+
+        for (int dx = -1; dx <= 1; ++dx) {
+          for (int dy = -1; dy <= 1; ++dy) {
+            if (dx == 0 && dy == 0) continue;
+            const int nx = x + dx;
+            const int ny = y + dy;
+            if (nx < 0 || nx >= dimX || ny < 0 || ny >= dimY) continue;
+
+            const size_t n_idx = static_cast<size_t>(nx) + static_cast<size_t>(dimX) * ny;
+            const float h_neigh = col_max_height_[n_idx];
+            if (h_neigh == -std::numeric_limits<float>::infinity()) continue;
+
+            const float delta = std::abs(h_center - h_neigh);
+            sum_delta += delta;
+            if (delta > max_delta) max_delta = delta;
+            ++count;
+          }
+        }
+
+        if (count > 0) {
+          terrain_cost_[idx_2d] = use_max ? max_delta : (sum_delta / static_cast<float>(count));
+        }
+      }
+    }
+
+    // Step 4: Inject terrain cost into heat_ array at z=0 slice
+    if (terrain_cost_weight > 0.0f && !heat_.empty() && dimZ > 0) {
+      for (int x = 0; x < dimX; ++x) {
+        for (int y = 0; y < dimY; ++y) {
+          const size_t idx_2d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+          if (terrain_cost_[idx_2d] > 0.0f) {
+            // z=0 slice in the 3D heat array
+            const size_t idx_3d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+            if (idx_3d < heat_.size()) {
+              heat_[idx_3d] += terrain_cost_weight * terrain_cost_[idx_2d];
+            }
+          }
+        }
+      }
+    }
+
+    has_2d_map_ = true;
+
+    // Debug stats
+    int occ_count = 0, free_count = 0, unk_count = 0;
+    float max_tc = 0.0f;
+    for (size_t i = 0; i < size_2d; ++i) {
+      if (map_2d_[i] == val_occ_) ++occ_count;
+      else if (map_2d_[i] == val_free_) ++free_count;
+      if (terrain_cost_[i] > max_tc) max_tc = terrain_cost_[i];
+    }
+    std::cout << "[buildGroundMap2D] dimX=" << dimX << " dimY=" << dimY
+              << " occ=" << occ_count << " free=" << free_count
+              << " max_terrain_cost=" << max_tc
+              << " obstacle_min_height=" << obstacle_min_height << std::endl;
+  }
+
+  /** @brief Check if a 2D ground map has been built. */
+  bool has2DMap() const { return has_2d_map_; }
+
+  /** @brief Get 2D occupancy at grid coordinates. */
+  int8_t get2DOccupancy(int x, int y) const {
+    if (!has_2d_map_) return val_free_;
+    const int dimX = dim_(0);
+    const int dimY = dim_(1);
+    if (x < 0 || x >= dimX || y < 0 || y >= dimY) return val_occ_;
+    return map_2d_[static_cast<size_t>(x) + static_cast<size_t>(dimX) * y];
+  }
+
+  /** @brief Get terrain gradient cost at grid coordinates. */
+  float getTerrainCost(int x, int y) const {
+    if (!has_2d_map_) return 0.0f;
+    const int dimX = dim_(0);
+    const int dimY = dim_(1);
+    if (x < 0 || x >= dimX || y < 0 || y >= dimY) return 0.0f;
+    return terrain_cost_[static_cast<size_t>(x) + static_cast<size_t>(dimX) * y];
+  }
+
+  /** @brief Get terrain height (max occupied z) at grid coordinates.
+   *  Returns 0 if no occupied voxels found in that column. */
+  float getTerrainHeight(int x, int y) const {
+    if (!has_2d_map_) return 0.0f;
+    const int dimX = dim_(0);
+    const int dimY = dim_(1);
+    if (x < 0 || x >= dimX || y < 0 || y >= dimY) return 0.0f;
+    const float h = col_max_height_[static_cast<size_t>(x) + static_cast<size_t>(dimX) * y];
+    return (h == -std::numeric_limits<float>::infinity()) ? 0.0f : h;
+  }
+
+  /** @brief Get terrain height at world coordinates with nearest-cell lookup.
+   *  @param wx World x coordinate.
+   *  @param wy World y coordinate.
+   *  @return Terrain height at that location, or 0 if unavailable.
+   */
+  float getTerrainHeightWorld(float wx, float wy) const {
+    if (!has_2d_map_) return 0.0f;
+    const int ix = static_cast<int>(std::floor((wx - origin_d_(0)) / res_ - 0.5f));
+    const int iy = static_cast<int>(std::floor((wy - origin_d_(1)) / res_ - 0.5f));
+    return getTerrainHeight(ix, iy);
+  }
+
+  /** @brief Get raw pointer to the 2D occupancy map data for GraphSearch construction. */
+  const int8_t* get2DMapData() const { return has_2d_map_ ? map_2d_.data() : nullptr; }
+
+  /** @brief Free a cell and its surroundings in the 2D map. */
+  void free2DCell(int cx, int cy, float radius_m) {
+    if (!has_2d_map_) return;
+    const int dimX = dim_(0);
+    const int dimY = dim_(1);
+    const int r = static_cast<int>(std::ceil(radius_m / res_));
+    for (int dx = -r; dx <= r; ++dx) {
+      for (int dy = -r; dy <= r; ++dy) {
+        const int nx = cx + dx;
+        const int ny = cy + dy;
+        if (nx >= 0 && nx < dimX && ny >= 0 && ny < dimY) {
+          map_2d_[static_cast<size_t>(nx) + static_cast<size_t>(dimX) * ny] = val_free_;
+        }
+      }
+    }
+  }
+
+  /** @brief Get 2D map dimensions. */
+  void get2DDimensions(int& dimX, int& dimY) const {
+    dimX = dim_(0);
+    dimY = dim_(1);
+  }
 
  protected:
   // Resolution

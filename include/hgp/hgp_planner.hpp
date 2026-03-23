@@ -213,4 +213,9 @@ class HGPPlanner {
   int los_cells_ = 3;       // number of cells for inflation in LoS
   double min_len_ = 0.5;    // minimum length of edges
   double min_turn_ = 10.0;  // minimum turn angle in degrees
+
+ public:
+  // 2D ground robot planning mode
+  bool is_2d_mode_{false};
+  void set2DMode(bool enabled) { is_2d_mode_ = enabled; }
 };

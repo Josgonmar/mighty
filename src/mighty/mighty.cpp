@@ -49,6 +49,7 @@ MIGHTY::MIGHTY(parameters par) : par_(par)
   planner_params_.BIG = 1e8;
   planner_params_.dc = par_.dc; // descretiation constant
   planner_params_.init_turn_bf = par_.init_turn_bf;
+  planner_params_.is_2d_mode = par_.use_2d_planning && (par_.vehicle_type == "ground_robot");
 
   // Set up the L-BFGS parameters
   lbfgs_params_.mem_size = 256;
@@ -639,11 +640,19 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
   if (par_.debug_verbose)
     std::cout << "Solving DGP" << std::endl;
 
-  // if using ground robot, we fix the z
+  // if using ground robot, fix z to terrain height (or 0 for 2D reference)
   if (par_.vehicle_type != "uav")
   {
-    local_A.pos[2] = 0.5;
-    local_G.pos[2] = 0.5;
+    if (par_.use_2d_planning)
+    {
+      local_A.pos[2] = 0.0;
+      local_G.pos[2] = 0.0;
+    }
+    else
+    {
+      local_A.pos[2] = 0.5;
+      local_G.pos[2] = 0.5;
+    }
   }
 
   // 1) Build a direction hint from the *previous* global path
@@ -756,7 +765,7 @@ bool MIGHTY::planLocalTrajectory(vec_Vecf<3> &global_path)
 
   if (par_.vehicle_type != "uav")
   {
-    local_A.pos[2] = 0.5;
+    local_A.pos[2] = par_.use_2d_planning ? 0.0 : 0.5;
   }
 
   optimization_succeeded = generateLocalTrajectory(
@@ -850,7 +859,7 @@ bool MIGHTY::generateLocalTrajectory(const state &local_A, double A_time,
   // if using ground robot, we fix the z
   if (par_.vehicle_type != "uav")
   {
-    local_E.pos[2] = 0.5;
+    local_E.pos[2] = par_.use_2d_planning ? 0.0 : 0.5;
   }
 
   whole_traj_solver_ptr->prepareSolverForReplan(A_time, global_path, safe_corridor_polytopes_whole_, local_trajs, local_A, local_E, initial_guess_computation_time, par_.use_multiple_initial_guesses);

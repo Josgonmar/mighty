@@ -69,6 +69,8 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
   pub_free_map_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("free_map_marker", 10);                                         // visual level 2
   pub_unknown_map_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("unknown_map_marker", 10);                                   // visual level 2
   pub_heat_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("heat_cloud", 10);                                                          // visual level 2
+  pub_ground_2d_occ_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("ground_2d_occupied", 10);                                               // 2D ground obstacle map
+  pub_ground_2d_heat_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("ground_2d_heat", 10);                                                // 2D terrain cost heat map
   pub_free_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("free_grid", 10);                                                             // visual level 2 (no longer used)
   pub_unknown_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("unknown_grid", 10);                                                       // visual level 2 (no longer used)
   pub_dgp_path_marker_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("dgp_path_marker", 10);                                         // visual level 1
@@ -407,6 +409,14 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("ground_robot_w_max", 1.5);
   this->declare_parameter("ground_robot_L_min", 1.0);
 
+  // 2D ground robot planning parameters
+  this->declare_parameter("use_2d_planning", false);
+  this->declare_parameter("robot_height", 0.5);
+  this->declare_parameter("obstacle_min_height", 0.3);
+  this->declare_parameter("terrain_cost_weight", 1.0);
+  this->declare_parameter("terrain_cost_mode", std::string("max"));
+  this->declare_parameter("ground_slab_margin", 0.3);
+
   this->declare_parameter("trajectory_downsample_points", 500);
 }
 
@@ -648,6 +658,14 @@ void MIGHTY_NODE::setParameters()
   par_.ground_robot_v_max = this->get_parameter("ground_robot_v_max").as_double();
   par_.ground_robot_w_max = this->get_parameter("ground_robot_w_max").as_double();
   par_.ground_robot_L_min = this->get_parameter("ground_robot_L_min").as_double();
+
+  // 2D ground robot planning parameters
+  par_.use_2d_planning = this->get_parameter("use_2d_planning").as_bool();
+  par_.robot_height = this->get_parameter("robot_height").as_double();
+  par_.obstacle_min_height = this->get_parameter("obstacle_min_height").as_double();
+  par_.terrain_cost_weight = this->get_parameter("terrain_cost_weight").as_double();
+  par_.terrain_cost_mode = this->get_parameter("terrain_cost_mode").as_string();
+  par_.ground_slab_margin = this->get_parameter("ground_slab_margin").as_double();
 
   par_.trajectory_downsample_points = this->get_parameter("trajectory_downsample_points").as_int();
 }
@@ -2402,6 +2420,8 @@ void MIGHTY_NODE::mapCallback(
   {
     publishHeatCloud();
   }
+  publishGround2DOccupied();
+  publishGround2DHeat();
 }
 
 // ----------------------------------------------------------------------------
@@ -2420,6 +2440,8 @@ void MIGHTY_NODE::occupancyMapCallback(
   {
     publishHeatCloud();
   }
+  publishGround2DOccupied();
+  publishGround2DHeat();
 }
 
 // ----------------------------------------------------------------------------
@@ -2433,8 +2455,8 @@ void MIGHTY_NODE::publishHeatCloud()
   if (!map_util)
     return;
 
-  // Check if any heat source is enabled
-  const bool has_heat = par_.dynamic_heat_enabled || par_.static_heat_enabled;
+  // Check if any heat source is enabled (terrain cost counts as heat in 2D mode)
+  const bool has_heat = par_.dynamic_heat_enabled || par_.static_heat_enabled || par_.use_2d_planning;
   if (!par_.use_heat_map || !has_heat)
     return;
 
@@ -2516,6 +2538,83 @@ BUILD_MSG:
   }
 
   pub_heat_cloud_->publish(msg);
+}
+
+// ----------------------------------------------------------------------------
+
+void MIGHTY_NODE::publishGround2DOccupied()
+{
+  if (!pub_ground_2d_occ_ || !par_.use_2d_planning)
+    return;
+
+  auto map_util = mighty_ptr_->getMapUtil();
+  if (!map_util || !map_util->has2DMap())
+    return;
+
+  int dimX, dimY;
+  map_util->get2DDimensions(dimX, dimY);
+  const auto origin = map_util->getOrigin();
+  const float res = static_cast<float>(map_util->getRes());
+
+  // Collect 2D occupied cells as 3D points at terrain height
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  for (int x = 0; x < dimX; ++x) {
+    for (int y = 0; y < dimY; ++y) {
+      if (map_util->get2DOccupancy(x, y) != 0) {  // occupied
+        pcl::PointXYZI pt;
+        pt.x = origin(0) + (x + 0.5f) * res;
+        pt.y = origin(1) + (y + 0.5f) * res;
+        pt.z = map_util->getTerrainHeight(x, y);
+        pt.intensity = 1.0f;
+        cloud.push_back(pt);
+      }
+    }
+  }
+
+  sensor_msgs::msg::PointCloud2 msg;
+  pcl::toROSMsg(cloud, msg);
+  msg.header.frame_id = par_.map_frame_id;
+  msg.header.stamp = this->now();
+  pub_ground_2d_occ_->publish(msg);
+}
+
+// ----------------------------------------------------------------------------
+
+void MIGHTY_NODE::publishGround2DHeat()
+{
+  if (!pub_ground_2d_heat_ || !par_.use_2d_planning)
+    return;
+
+  auto map_util = mighty_ptr_->getMapUtil();
+  if (!map_util || !map_util->has2DMap())
+    return;
+
+  int dimX, dimY;
+  map_util->get2DDimensions(dimX, dimY);
+  const auto origin = map_util->getOrigin();
+  const float res = static_cast<float>(map_util->getRes());
+
+  // Collect 2D terrain cost as colored point cloud
+  pcl::PointCloud<pcl::PointXYZI> cloud;
+  for (int x = 0; x < dimX; ++x) {
+    for (int y = 0; y < dimY; ++y) {
+      const float tc = map_util->getTerrainCost(x, y);
+      if (tc > 0.001f) {
+        pcl::PointXYZI pt;
+        pt.x = origin(0) + (x + 0.5f) * res;
+        pt.y = origin(1) + (y + 0.5f) * res;
+        pt.z = map_util->getTerrainHeight(x, y);
+        pt.intensity = tc;
+        cloud.push_back(pt);
+      }
+    }
+  }
+
+  sensor_msgs::msg::PointCloud2 msg;
+  pcl::toROSMsg(cloud, msg);
+  msg.header.frame_id = par_.map_frame_id;
+  msg.header.stamp = this->now();
+  pub_ground_2d_heat_->publish(msg);
 }
 
 // ----------------------------------------------------------------------------

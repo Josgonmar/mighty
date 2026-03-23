@@ -27,7 +27,6 @@ def generate_launch_description():
     z_arg = DeclareLaunchArgument('z', default_value='2.0', description='Initial z position of the quadrotor')
     yaw_arg = DeclareLaunchArgument('yaw', default_value='180', description='Initial yaw angle of the quadrotor')
     namespace_arg = DeclareLaunchArgument('namespace', default_value='NX01', description='Namespace of the nodes') # namespace
-    use_obstacle_tracker_arg = DeclareLaunchArgument('use_obstacle_tracker', default_value='false', description='Flag to indicate whether to start the obstacle tracker node') # flag to indicate whether to start the obstacle tracker node
     data_file_arg = DeclareLaunchArgument('data_file', default_value='/media/kkondo/T7/dynus/tro_paper/global_planner_benchmarking/dgp.csv', description='File name to store data') # file name to store data
     global_planner_arg = DeclareLaunchArgument('global_planner', default_value='sjps', description='Global planner to use') # global planner
     use_benchmark_arg = DeclareLaunchArgument('use_benchmark', default_value='false', description='Flag to indicate whether to use the global planner benchmark') # global planner benchmark
@@ -64,7 +63,6 @@ def generate_launch_description():
         z = LaunchConfiguration('z').perform(context)
         yaw = LaunchConfiguration('yaw').perform(context)
         namespace = LaunchConfiguration('namespace').perform(context)
-        use_obstacle_tracker = convert_str_to_bool(LaunchConfiguration('use_obstacle_tracker').perform(context))
         data_file = LaunchConfiguration('data_file').perform(context)
         global_planner = LaunchConfiguration('global_planner').perform(context)
         use_benchmark = convert_str_to_bool(LaunchConfiguration('use_benchmark').perform(context))
@@ -184,19 +182,6 @@ def generate_launch_description():
             arguments=['-topic', 'robot_description', '-entity', namespace, '-x', x, '-y', y, '-z', z, '-Y', yaw, '--ros-args', '--log-level', 'error'],
         )
         
-        # Create an obstacle tracker node
-        obstacle_tracker_node = Node(
-            package='mighty',
-            executable='obstacle_tracker_node',
-            namespace=namespace,
-            name='obstacle_tracker_node',
-            emulate_tty=True,
-            parameters=[parameters],
-            # prefix='xterm -e gdb -ex run --args', # gdb debugging
-            output='screen',
-            remappings=[('point_cloud', f'd435/depth/color/points')],
-        )
-
         # Convert pose and twist (from Vicon) to state
         pose_twist_to_state_node = Node(
             package='mighty',
@@ -330,7 +315,6 @@ def generate_launch_description():
             nodes_to_start.append(pure_pursuit_node) if use_ground_robot else None
             nodes_to_start.append(pcl_render_node) if parameters['sim_env'] == 'fake_sim' else None
 
-        nodes_to_start.append(obstacle_tracker_node) if use_obstacle_tracker else None
         return nodes_to_start
 
     # Create launch description
@@ -340,7 +324,6 @@ def generate_launch_description():
         z_arg,
         yaw_arg,
         namespace_arg,
-        use_obstacle_tracker_arg,
         data_file_arg,
         global_planner_arg,
         use_benchmark_arg,

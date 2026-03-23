@@ -247,6 +247,14 @@ struct parameters
   double ground_robot_w_max{1.5};       // Max angular velocity (rad/s)
   double ground_robot_L_min{1.0};       // [m] Minimum lookahead distance for pure pursuit and point A
 
+  // 2D ground robot planning parameters
+  bool use_2d_planning{false};              // Master toggle for 2D ground planning
+  double robot_height{0.5};                 // [m] Robot height for obstacle column detection
+  double obstacle_min_height{0.3};          // [m] Min height span in column to classify as obstacle
+  double terrain_cost_weight{1.0};          // [-] Multiplier for terrain gradient cost in A*
+  std::string terrain_cost_mode{"max"};     // "max" or "avg" of neighbor height deltas
+  double ground_slab_margin{0.3};           // [m] z margin for floor/ceiling virtual obstacles in corridors
+
   // Trajectory publishing parameters
   int trajectory_downsample_points{500}; // Number of points to downsample trajectory to
 };

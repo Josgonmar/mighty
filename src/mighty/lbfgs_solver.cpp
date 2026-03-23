@@ -683,6 +683,7 @@ void SolverLBFGS::initializeSolver(const planner_params_t &params)
     f_max_ = params.f_max;
     mass_ = params.mass;
     g_ = params.g;
+    is_2d_mode_ = params.is_2d_mode;
 }
 
 // -----------------------------------------------------------------------------
@@ -915,6 +916,16 @@ void SolverLBFGS::prepareSolverForReplan(double t0,
     v0_ = initial_state.vel;
     a0_ = initial_state.accel;
 
+    // In 2D mode, force z boundary conditions: zero z-velocity and z-acceleration
+    if (is_2d_mode_)
+    {
+        v0_.z() = 0.0;
+        a0_.z() = 0.0;
+        // Force all waypoint z to 0 (corridors are at z=0 reference)
+        for (auto &wp : global_wps_)
+            wp.z() = 0.0;
+    }
+
     // Copy the dynamic obstacles
     obstacles_.clear();
     obstacles_ = obstacles;
@@ -935,6 +946,13 @@ void SolverLBFGS::prepareSolverForReplan(double t0,
     xf_ = global_wps_.back();
     vf_ = goal_state.vel;
     af_ = goal_state.accel;
+
+    // In 2D mode, also force goal z boundary conditions
+    if (is_2d_mode_)
+    {
+        vf_.z() = 0.0;
+        af_.z() = 0.0;
+    }
 
     // ---- REPLACE HEURISTIC ROUTE WITH SHORTEST-PATH THROUGH THE CORRIDOR ----
     if (!use_for_safe_path)
@@ -1122,6 +1140,14 @@ void SolverLBFGS::reconstruct(
         const Vec3 ahat(z[base + 6], z[base + 7], z[base + 8]);
         V[i] = vhat / Tb;
         A[i] = ahat / (Tb * Tb);
+
+        // In 2D mode, clamp z-components to prevent drift
+        if (is_2d_mode_)
+        {
+            P[i].z() = 0.0;
+            V[i].z() = 0.0;
+            A[i].z() = 0.0;
+        }
     }
 
     // 5) control points (unchanged)
@@ -2705,6 +2731,19 @@ double SolverLBFGS::evaluateObjectiveAndGradientFused(const Eigen::VectorXd &z, 
         dyn_constr_bodyrate_weight_ * J_om +
         dyn_constr_tilt_weight_ * J_tilt +
         dyn_constr_thrust_weight_ * J_thr;
+
+    // In 2D mode: zero z-gradient components for all interior knots.
+    // This prevents L-BFGS from moving any z-related decision variable.
+    if (is_2d_mode_)
+    {
+        for (int i = 1; i < M; ++i)
+        {
+            const int base = zcp_offset_for_knot(i, M);
+            grad[base + 2] = 0.0;  // z-position gradient
+            grad[base + 5] = 0.0;  // z-velocity-hat gradient
+            grad[base + 8] = 0.0;  // z-acceleration-hat gradient
+        }
+    }
 
     return f;
 }

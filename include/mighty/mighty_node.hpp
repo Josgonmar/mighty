@@ -141,6 +141,8 @@ namespace mighty
         void publishFOV();
         void publisCps();
         void publishHeatCloud();
+        void publishGround2DOccupied();
+        void publishGround2DHeat();
         void publishStaticPushPoints();
         void publishLocalGlobalPath();
         void publishVelocityInText(const Eigen::Vector3d &position, double velocity);
@@ -192,6 +194,8 @@ namespace mighty
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_free_map_marker_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_unknown_map_marker_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_heat_cloud_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_ground_2d_occ_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_ground_2d_heat_;
         rclcpp::Publisher<decomp_ros_msgs::msg::PolyhedronArray>::SharedPtr pub_poly_whole_;
         rclcpp::Publisher<decomp_ros_msgs::msg::PolyhedronArray>::SharedPtr pub_poly_safe_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_traj_committed_colored_;
