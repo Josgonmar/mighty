@@ -570,6 +570,12 @@ void GraphSearch::getSucc(const StatePtr& curr, std::vector<int>& succ_ids,
       // Soft-cost mode: allow traversal but add penalty below
     }
 
+    // For ground robots: also check 2D occupancy map (catches walls visible only at higher z)
+    if (map_util_ && map_util_->has2DMap() &&
+        map_util_->get2DOccupancy(new_x, new_y) != 0) {
+      continue;  // Occupied in 2D projection
+    }
+
     int new_id = coordToId(new_x, new_y, new_z);
     if (new_id < 0 || new_id >= (int)hm_.size()) continue;
 
@@ -606,6 +612,11 @@ void GraphSearch::getSucc(const StatePtr& curr, std::vector<int>& succ_ids,
         const float soft_cost = map_util_->getObstacleSoftCost();
         step_cost += (double)(w_heat * soft_cost);
       }
+    }
+
+    // -------- Unknown cell penalty --------
+    if (w_unknown_ > 0.0 && isUnknown(new_x, new_y, new_z)) {
+      step_cost += w_unknown_;
     }
 
     succ_ids.push_back(new_id);

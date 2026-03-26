@@ -23,8 +23,8 @@ void HGPManager::setParameters(const parameters& par) {
   // Get the parameter
   par_ = par;
 
-  // Set the 2D ground robot flag
-  is_ground_robot_ = (par.vehicle_type == "ground_robot" && par.use_2d_planning);
+  // Set the 2D ground robot flag (build 2D map for any ground robot, use_2d_planning controls A* mode)
+  is_ground_robot_ = (par.vehicle_type == "ground_robot");
 
   // Set the parameters
   res_ = par.res;
@@ -121,8 +121,12 @@ void HGPManager::setupHGPPlanner(const std::string& global_planner, bool global_
   // Set max node expansion
   planner_ptr_->setMaxExpand(max_num_expansion);
 
-  // Enable 2D mode for ground robots
-  planner_ptr_->set2DMode(is_ground_robot_);
+  // Enable 2D A* mode only when use_2d_planning is on
+  planner_ptr_->set2DMode(is_ground_robot_ && par_.use_2d_planning);
+
+  // Skip path smoothing if configured
+  planner_ptr_->setSkipPathSmoothing(par_.skip_path_smoothing);
+  planner_ptr_->setSmoothParams(par_.smooth_iterations, par_.smooth_alpha);
 
   // Create the map_util_for_planning
   // This is the beginning of the planning, so we fetch the map_util_ and don't update it for the
@@ -245,8 +249,8 @@ bool HGPManager::solveHGP(const Vec3f& start_sent, const Vec3f& start_vel, const
   Vec3f start_for_search = start_sent;
   Vec3f goal_for_search = goal_sent;
   if (is_ground_robot_) {
-    start_for_search(2) = 0.0f;
-    goal_for_search(2) = 0.0f;
+    start_for_search(2) = static_cast<float>(par_.default_goal_z);
+    goal_for_search(2) = static_cast<float>(par_.default_goal_z);
 
     // Free start/goal in the 2D map — ground points would otherwise block them.
     // (freeStart/freeGoal ran on the previous map_util_for_planning_ which we just overwrote)
@@ -278,13 +282,25 @@ bool HGPManager::solveHGP(const Vec3f& start_sent, const Vec3f& start_vel, const
     raw_path = planner_ptr_->getRawPath();
   }
 
-  // Add more vertices if necessary
-  mighty_utils::createMoreVertexes(path, max_dist_vertexes_);
+  // Resample path at uniform arc-length intervals
+  mighty_utils::resamplePathUniform(path, max_dist_vertexes_);
 
-  // Final cleanup: merge any vertices closer than min_len
-  // (can arise from createMoreVertexes remainders or post-processing steps after
-  // collapseShortEdges)
-  path = planner_ptr_->collapseShortEdges(path, par_.min_len);
+  // For ground robots, trim the path at the first non-free waypoint (using 2D map)
+  if (is_ground_robot_ && map_util_for_planning_->has2DMap() && path.size() > 1) {
+    vec_Vecf<3> free_path;
+    free_path.push_back(path[0]);
+    for (size_t i = 1; i < path.size(); i++) {
+      Veci<3> pi = map_util_for_planning_->floatToInt(path[i]);
+      if (map_util_for_planning_->get2DOccupancy(pi(0), pi(1)) == 0) {
+        free_path.push_back(path[i]);
+      } else {
+        break;  // stop at first occupied cell
+      }
+    }
+    if (free_path.size() >= 2) {
+      path = free_path;
+    }
+  }
 
   // In 2D mode, lift path waypoints from z=0 reference to terrain height
   if (is_ground_robot_ && map_util_for_planning_->has2DMap()) {
@@ -431,9 +447,12 @@ bool HGPManager::cvxEllipsoidDecomp(EllipsoidDecomp3D& ellip, const vec_Vecf<3>&
   poly_out.clear();
   poly_out.resize(num_seg);
 
-  // For 2D mode: build a projected obstacle set from 2D map at z=0 + floor/ceiling
+  // For ground robot: build a projected obstacle set at z=0 + floor/ceiling slabs.
+  // When sfc_use_unknown_as_obstacle is true, use the 2D map (which merges unknown+occupied).
+  // When false, project the caller-provided base_uo (occupied-only 3D points) to z=0.
   vec_Vec3f base_uo_2d;
-  if (is_ground_robot_ && map_util_for_planning_ && map_util_for_planning_->has2DMap()) {
+  if (is_ground_robot_ && par_.sfc_use_unknown_as_obstacle &&
+      map_util_for_planning_ && map_util_for_planning_->has2DMap()) {
     int dimX, dimY;
     map_util_for_planning_->get2DDimensions(dimX, dimY);
     const auto origin = map_util_for_planning_->getOrigin();
@@ -456,6 +475,24 @@ bool HGPManager::cvxEllipsoidDecomp(EllipsoidDecomp3D& ellip, const vec_Vecf<3>&
     const float x_hi = origin(0) + dimX * res;
     const float y_hi = origin(1) + dimY * res;
     const float floor_step = res * 2.0f;  // every 2 cells for density
+    for (float fx = x_lo; fx <= x_hi; fx += floor_step) {
+      for (float fy = y_lo; fy <= y_hi; fy += floor_step) {
+        base_uo_2d.emplace_back(Vec3f(fx, fy, -slab_margin));
+        base_uo_2d.emplace_back(Vec3f(fx, fy,  slab_margin));
+      }
+    }
+  } else if (is_ground_robot_ && map_util_for_planning_) {
+    // Project occupied-only 3D points to z=0 and add floor/ceiling slabs
+    for (const auto& pt : base_uo) {
+      base_uo_2d.emplace_back(Vec3f(pt(0), pt(1), 0.0f));
+    }
+    const auto origin = map_util_for_planning_->getOrigin();
+    const auto dim = map_util_for_planning_->getDim();
+    const float res = static_cast<float>(map_util_for_planning_->getRes());
+    const float x_lo = origin(0), y_lo = origin(1);
+    const float x_hi = origin(0) + dim(0) * res;
+    const float y_hi = origin(1) + dim(1) * res;
+    const float floor_step = res * 2.0f;
     for (float fx = x_lo; fx <= x_hi; fx += floor_step) {
       for (float fy = y_lo; fy <= y_hi; fy += floor_step) {
         base_uo_2d.emplace_back(Vec3f(fx, fy, -slab_margin));
@@ -569,7 +606,8 @@ bool HGPManager::cvxEllipsoidDecompTimeLayered(
 
   // For 2D mode: build a projected obstacle set (reused across time layers)
   vec_Vec3f base_uo_2d_tl;
-  if (is_ground_robot_ && map_util_for_planning_ && map_util_for_planning_->has2DMap()) {
+  if (is_ground_robot_ && par_.sfc_use_unknown_as_obstacle &&
+      map_util_for_planning_ && map_util_for_planning_->has2DMap()) {
     int dimX, dimY;
     map_util_for_planning_->get2DDimensions(dimX, dimY);
     const auto origin = map_util_for_planning_->getOrigin();
@@ -586,6 +624,23 @@ bool HGPManager::cvxEllipsoidDecompTimeLayered(
     }
     const float x_lo = origin(0), y_lo = origin(1);
     const float x_hi = origin(0) + dimX * res, y_hi = origin(1) + dimY * res;
+    const float floor_step = res * 2.0f;
+    for (float fx = x_lo; fx <= x_hi; fx += floor_step) {
+      for (float fy = y_lo; fy <= y_hi; fy += floor_step) {
+        base_uo_2d_tl.emplace_back(Vec3f(fx, fy, -slab_margin_tl));
+        base_uo_2d_tl.emplace_back(Vec3f(fx, fy,  slab_margin_tl));
+      }
+    }
+  } else if (is_ground_robot_ && map_util_for_planning_) {
+    for (const auto& pt : base_uo) {
+      base_uo_2d_tl.emplace_back(Vec3f(pt(0), pt(1), 0.0f));
+    }
+    const auto origin = map_util_for_planning_->getOrigin();
+    const auto dim = map_util_for_planning_->getDim();
+    const float res = static_cast<float>(map_util_for_planning_->getRes());
+    const float x_lo = origin(0), y_lo = origin(1);
+    const float x_hi = origin(0) + dim(0) * res;
+    const float y_hi = origin(1) + dim(1) * res;
     const float floor_step = res * 2.0f;
     for (float fx = x_lo; fx <= x_hi; fx += floor_step) {
       for (float fy = y_lo; fy <= y_hi; fy += floor_step) {
@@ -1136,7 +1191,9 @@ void HGPManager::updateMap(double wdx, double wdy, double wdz, const Vec3f& cent
     map_util_->buildGroundMap2D(
         static_cast<float>(par_.obstacle_min_height),
         static_cast<float>(par_.terrain_cost_weight),
-        par_.terrain_cost_mode);
+        par_.terrain_cost_mode,
+        par_.use_column_any_occupied,
+        static_cast<float>(par_.column_min_z));
   }
   mtx_map_util_.unlock();
 

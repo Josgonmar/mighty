@@ -66,7 +66,7 @@ mighty_node:
 
         # --- Goal ---
         force_goal_z: false                             # [-] Force goal to a fixed height
-        default_goal_z: 0.5                             # [m] Default goal height
+        default_goal_z: 0.2                             # [m] Default goal height
 
         # --- Ground Robot Planning ---
         ground_robot_L_min: 1.0                         # [m] Lookahead distance for point A (planning start point)

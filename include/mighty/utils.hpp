@@ -109,6 +109,9 @@ namespace mighty_utils
     // enforce minimum spacing between consecutive path points
     void enforceMinimumSpacing(vec_Vecf<3>& path, double min_spacing);
 
+    // resample path at uniform arc-length intervals
+    void resamplePathUniform(vec_Vecf<3>& path, double spacing);
+
     // euclidean distance
     double euclideanDistance(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2);
 

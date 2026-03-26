@@ -160,13 +160,13 @@ vec_Vecf<3> HGPPlanner::removeCornerPts(const vec_Vecf<3>& path) {
 
   // Guardrail: allow some peak-heat increase, but not large.
   // Increase if you want more aggressive smoothing; decrease if you want stronger avoidance.
-  const double peak_heat_relax = 0.50;  // 10%
+  const double peak_heat_relax = 0.10;  // 10%
 
   auto segCostAndPeakHeat = [&](const Vecf<3>& a, const Vecf<3>& b,
                                 double* peak_heat_out) -> double {
     if (peak_heat_out) *peak_heat_out = 0.0;
 
-    if (!map_util_ || map_util_->isBlocked(a, b)) return std::numeric_limits<decimal_t>::infinity();
+    if (!map_util_ || !lineOfSightCapsule(a, b, los_cells_)) return std::numeric_limits<decimal_t>::infinity();
 
     const Vecf<3> d = b - a;
     const double L = (double)d.norm();
@@ -451,7 +451,10 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   raw_path_ = ps;
   std::reverse(std::begin(raw_path_), std::end(raw_path_));
 
-  if (is_2d_mode_) {
+  if (skip_path_smoothing_) {
+    // Heat-aware Laplacian smoothing (moves waypoints, doesn't remove them)
+    path_ = smoothPathHeatAware(raw_path_, smooth_iterations_, smooth_alpha_);
+  } else if (is_2d_mode_) {
     // In 2D mode, skip 3D LoS shortcutting (it uses the 3D map which has ground points).
     // Just do basic path cleanup.
     auto tmp = raw_path_;
@@ -490,6 +493,45 @@ void HGPPlanner::cleanUpPath(vec_Vecf<3>& path) {
   std::reverse(std::begin(path), std::end(path));
   path = removeCornerPts(path);
   std::reverse(std::begin(path), std::end(path));
+}
+
+vec_Vecf<3> HGPPlanner::smoothPathHeatAware(const vec_Vecf<3>& path,
+                                             int iterations, double alpha) const {
+  if (path.size() < 3 || !map_util_) return path;
+
+  const bool heat_on = (map_util_->dynamicHeatEnabled() || map_util_->staticHeatEnabled()) &&
+                        map_util_->getHeatWeight() > 0.0f;
+  const bool has_2d = map_util_->has2DMap();
+
+  vec_Vecf<3> smoothed = path;
+
+  for (int iter = 0; iter < iterations; iter++) {
+    for (size_t i = 1; i < smoothed.size() - 1; i++) {
+      Vecf<3> mid = (smoothed[i - 1] + smoothed[i + 1]) / 2.0;
+      Vecf<3> candidate = smoothed[i] + alpha * (mid - smoothed[i]);
+
+      // Reject if occupied in 3D
+      if (map_util_->isOccupied(candidate)) continue;
+
+      // Reject if occupied in 2D projection
+      if (has_2d) {
+        Veci<3> ci = map_util_->floatToInt(candidate);
+        if (map_util_->get2DOccupancy(ci(0), ci(1)) != 0) continue;
+      }
+
+      // Reject if heat increases too much
+      if (heat_on) {
+        Veci<3> oi = map_util_->floatToInt(smoothed[i]);
+        Veci<3> ci = map_util_->floatToInt(candidate);
+        float h_old = map_util_->getHeat(oi(0), oi(1), oi(2));
+        float h_new = map_util_->getHeat(ci(0), ci(1), ci(2));
+        if (h_new > h_old * 1.1 + 0.01) continue;
+      }
+
+      smoothed[i] = candidate;
+    }
+  }
+  return smoothed;
 }
 
 double HGPPlanner::getInitialGuessPlanningTime() { return global_planning_time_; }

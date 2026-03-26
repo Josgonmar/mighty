@@ -954,6 +954,9 @@ void SolverLBFGS::prepareSolverForReplan(double t0,
         af_.z() = 0.0;
     }
 
+    // Stash original DGP waypoints before corridor replacement can modify them
+    std::vector<Vec3> original_dgp_wps = global_wps_;
+
     // ---- REPLACE HEURISTIC ROUTE WITH SHORTEST-PATH THROUGH THE CORRIDOR ----
     if (!use_for_safe_path)
     {
@@ -966,6 +969,43 @@ void SolverLBFGS::prepareSolverForReplan(double t0,
         }
     }
     // ------------------------------------------------------------------------------
+
+    // Override P_anchor_ with original DGP waypoints (not corridor centers).
+    // After corridor replacement, global_wps_ may have a different size,
+    // so resample the original DGP path to match.
+    if (pos_anchor_weight_ > 0.0)
+    {
+        P_anchor_.clear();
+        P_anchor_.reserve(global_wps_.size());
+        if (original_dgp_wps.size() == global_wps_.size())
+        {
+            // Same size — direct 1:1 mapping
+            P_anchor_ = original_dgp_wps;
+        }
+        else
+        {
+            // Different sizes — resample original DGP path by arc length
+            // Compute cumulative arc lengths of original path
+            std::vector<double> cum(original_dgp_wps.size(), 0.0);
+            for (size_t i = 1; i < original_dgp_wps.size(); i++)
+                cum[i] = cum[i - 1] + (original_dgp_wps[i] - original_dgp_wps[i - 1]).norm();
+            double total = cum.back();
+
+            int N = static_cast<int>(global_wps_.size());
+            P_anchor_.push_back(original_dgp_wps.front());
+            size_t seg = 0;
+            for (int k = 1; k < N - 1; k++)
+            {
+                double target = total * k / (N - 1);
+                while (seg + 1 < original_dgp_wps.size() - 1 && cum[seg + 1] < target)
+                    seg++;
+                double slen = cum[seg + 1] - cum[seg];
+                double t = (slen > 1e-9) ? (target - cum[seg]) / slen : 0.0;
+                P_anchor_.push_back(original_dgp_wps[seg] + t * (original_dgp_wps[seg + 1] - original_dgp_wps[seg]));
+            }
+            P_anchor_.push_back(original_dgp_wps.back());
+        }
+    }
 
     // Single initial guess: use min-jerk helper
     initial_guess_wps_.clear();
@@ -991,10 +1031,7 @@ void SolverLBFGS::prepareSolverForReplan(double t0,
         P.push_back(global_wps_[i]);
     }
 
-    // // Save this P as anchors
-    // if (pos_anchor_weight_ > 0.0) {
-    //     P_anchor_ = P;
-    // }
+    // P_anchor_ is set above (before corridor replacement) to original DGP waypoints
 
     // Initialize velocities and accelerations
     auto start = std::chrono::high_resolution_clock::now();

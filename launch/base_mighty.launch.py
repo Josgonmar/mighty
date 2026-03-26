@@ -79,20 +79,21 @@ def generate_launch_description():
         use_gazebo_gui = LaunchConfiguration('use_gazebo_gui').perform(context)
         use_ground_robot = convert_str_to_bool(LaunchConfiguration('use_ground_robot').perform(context))
 
-        # Create a rviz node - use ground robot config if available, otherwise use default
+        # Create a rviz node - prefer source rviz config over installed one
         rviz_config_filename = 'mighty_sim_ground_robot.rviz' if use_ground_robot else 'mighty.rviz'
-        rviz_config_file = os.path.join(
-            get_package_share_directory('mighty'),
-            'rviz',
-            rviz_config_filename
-        )
-        # Fallback to default if ground robot config doesn't exist
+        # Derive workspace root from installed package path (install/mighty/share/mighty -> workspace root)
+        install_share_dir = get_package_share_directory('mighty')
+        ws_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(install_share_dir))))
+        src_rviz_dir = os.path.join(ws_root, 'src', 'mighty', 'rviz')
+        rviz_config_file = os.path.join(src_rviz_dir, rviz_config_filename)
+        # Fallback to installed config if source path doesn't exist
+        if not os.path.exists(rviz_config_file):
+            rviz_config_file = os.path.join(install_share_dir, 'rviz', rviz_config_filename)
+        # Fallback to default mighty.rviz if ground robot config doesn't exist
         if use_ground_robot and not os.path.exists(rviz_config_file):
-            rviz_config_file = os.path.join(
-                get_package_share_directory('mighty'),
-                'rviz',
-                'mighty.rviz'
-            )
+            rviz_config_file = os.path.join(src_rviz_dir, 'mighty.rviz')
+            if not os.path.exists(rviz_config_file):
+                rviz_config_file = os.path.join(install_share_dir, 'rviz', 'mighty.rviz')
 
         rviz_node = Node(
                     package='rviz2',

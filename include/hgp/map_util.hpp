@@ -1584,7 +1584,9 @@ class MapUtil {
    *  @param cost_mode "max" or "avg" aggregation of neighbor height deltas.
    */
   void buildGroundMap2D(float obstacle_min_height, float terrain_cost_weight,
-                        const std::string& cost_mode) {
+                        const std::string& cost_mode,
+                        bool use_column_any_occupied = true,
+                        float column_min_z = 0.0f) {
     if (dim_(0) <= 0 || dim_(1) <= 0 || dim_(2) <= 0) return;
 
     const int dimX = dim_(0);
@@ -1612,6 +1614,8 @@ class MapUtil {
 
           if (map_[idx_3d] == val_occ_) {
             const float world_z = origin_d_(2) + (z + 0.5f) * res_;
+            // Skip ground-level voxels below the minimum z threshold
+            if (world_z < column_min_z) continue;
             if (world_z < col_min_height_[idx_2d]) col_min_height_[idx_2d] = world_z;
             if (world_z > col_max_height_[idx_2d]) col_max_height_[idx_2d] = world_z;
           } else if (map_[idx_3d] == val_unknown_) {
@@ -1619,23 +1623,28 @@ class MapUtil {
           }
         }
 
-        // Unknown columns → occupied for safety
-        if (has_unknown && col_max_height_[idx_2d] == -std::numeric_limits<float>::infinity()) {
-          map_2d_[idx_2d] = val_occ_;
-        }
+        // Unknown-only columns: skip (leave as free).
+        // Previously marked as occupied for safety, but this makes the
+        // entire unexplored area blocked for ground robots.
+        // Unknown handling is controlled by sfc_use_unknown_as_obstacle instead.
       }
     }
 
-    // Step 2: Obstacle classification — columns with large height span
+    // Step 2: Obstacle classification
 #pragma omp parallel for collapse(2) schedule(static)
     for (int x = 0; x < dimX; ++x) {
       for (int y = 0; y < dimY; ++y) {
         const size_t idx_2d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
-        if (col_max_height_[idx_2d] > -std::numeric_limits<float>::infinity() &&
-            col_min_height_[idx_2d] < std::numeric_limits<float>::infinity()) {
-          const float height_span = col_max_height_[idx_2d] - col_min_height_[idx_2d];
-          if (height_span > obstacle_min_height) {
+        if (col_max_height_[idx_2d] > -std::numeric_limits<float>::infinity()) {
+          if (use_column_any_occupied) {
+            // Any occupied voxel in column → 2D occupied
             map_2d_[idx_2d] = val_occ_;
+          } else if (col_min_height_[idx_2d] < std::numeric_limits<float>::infinity()) {
+            // Original logic: only mark if height span exceeds threshold
+            const float height_span = col_max_height_[idx_2d] - col_min_height_[idx_2d];
+            if (height_span > obstacle_min_height) {
+              map_2d_[idx_2d] = val_occ_;
+            }
           }
         }
       }

@@ -218,4 +218,19 @@ class HGPPlanner {
   // 2D ground robot planning mode
   bool is_2d_mode_{false};
   void set2DMode(bool enabled) { is_2d_mode_ = enabled; }
+
+  // Skip path post-processing (use raw A* path with heat-aware smoothing)
+  bool skip_path_smoothing_{false};
+  void setSkipPathSmoothing(bool enabled) { skip_path_smoothing_ = enabled; }
+
+  // Heat-aware Laplacian smoothing parameters
+  int smooth_iterations_{50};
+  double smooth_alpha_{0.3};
+  void setSmoothParams(int iterations, double alpha) {
+    smooth_iterations_ = iterations;
+    smooth_alpha_ = alpha;
+  }
+
+  // Heat-aware Laplacian smoothing
+  vec_Vecf<3> smoothPathHeatAware(const vec_Vecf<3>& path, int iterations, double alpha) const;
 };

@@ -181,6 +181,7 @@ mighty_node:
         min_dist_from_agent_to_traj: 10.0               # [m] Min distance from agent to trajectory
         use_shrinked_box: false                         # [-] Use shrunk box for decomposition
         shrinked_box_size: 0.0                          # [m] Shrunk box size
+        sfc_use_unknown_as_obstacle: false              # [-] Treat unknown cells as obstacles in SFC generation
 
         # --- L-BFGS Solver Internals ---
         dc: 0.01                                        # [s] Interpolation timestep

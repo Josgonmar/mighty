@@ -89,6 +89,9 @@ struct parameters
   int los_cells;
   double min_len;  // [m] minimum length between two waypoints after post processing
   double min_turn; // [deg] minimum turn angle after post processing
+  bool skip_path_smoothing{false}; // [-] Skip path post-processing (use raw A* path)
+  int smooth_iterations{50};       // [-] Number of heat-aware Laplacian smoothing passes
+  double smooth_alpha{0.3};        // [-] Smoothing relaxation factor (0=none, 1=aggressive)
 
   // Path push visualization parameters
   bool use_state_update;
@@ -146,6 +149,7 @@ struct parameters
   // HGP-specific parameters (from sando)
   double obst_position_error{0.0};
   bool inflate_unknown_boundary{false};
+  bool sfc_use_unknown_as_obstacle{false};
 
   // Communication delay parameters
   bool use_comm_delay_inflation;
@@ -251,6 +255,8 @@ struct parameters
   bool use_2d_planning{false};              // Master toggle for 2D ground planning
   double robot_height{0.5};                 // [m] Robot height for obstacle column detection
   double obstacle_min_height{0.3};          // [m] Min height span in column to classify as obstacle
+  bool use_column_any_occupied{true};       // [-] Any occupied voxel in column → 2D occupied
+  double column_min_z{0.15};                // [m] Ignore occupied voxels below this z (filters ground floor)
   double terrain_cost_weight{1.0};          // [-] Multiplier for terrain gradient cost in A*
   std::string terrain_cost_mode{"max"};     // "max" or "avg" of neighbor height deltas
   double ground_slab_margin{0.3};           // [m] z margin for floor/ceiling virtual obstacles in corridors

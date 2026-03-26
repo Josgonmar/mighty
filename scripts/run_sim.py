@@ -92,7 +92,7 @@ def generate_multiagent_positions(num_agents: int, radius: float = 10.0, z: floa
     return agents
 
 
-def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_domain_id: int = 20, radius: float = 10.0) -> str:
+def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_domain_id: int = 20, radius: float = 10.0, no_goal: bool = False) -> str:
     """Generate YAML for multi-agent fake simulation."""
     panes = []
 
@@ -114,13 +114,14 @@ def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_d
         })
 
     # Goal monitor
-    num_agents = len(agents)
-    panes.append({
-        'shell_command': [
-            'sleep 20',
-            f'ros2 launch mighty goal_monitor.launch.py num_agents:={num_agents} radius:={radius}'
-        ]
-    })
+    if not no_goal:
+        num_agents = len(agents)
+        panes.append({
+            'shell_command': [
+                'sleep 20',
+                f'ros2 launch mighty goal_monitor.launch.py num_agents:={num_agents} radius:={radius}'
+            ]
+        })
 
     yaml_content = {
         'session_name': 'mighty_sim',
@@ -147,7 +148,8 @@ def generate_gazebo_yaml(setup_bash: Path, goal: tuple, sim_env: str,
                          env: str = 'hard_forest',
                          start_pos: tuple = (0, 0, 3.0), start_yaw: float = 1.57,
                          ros_domain_id: int = 7, use_rviz: bool = True,
-                         use_gazebo_gui: bool = False, use_ground_robot: bool = False) -> str:
+                         use_gazebo_gui: bool = False, use_ground_robot: bool = False,
+                         no_goal: bool = False) -> str:
     """Generate YAML for single-agent Gazebo simulation."""
     goal_x, goal_y, goal_z = goal
     start_x, start_y, start_z = start_pos
@@ -186,14 +188,16 @@ def generate_gazebo_yaml(setup_bash: Path, goal: tuple, sim_env: str,
                 f'sim_env:={sim_env} use_ground_robot:={str(use_ground_robot).lower()}'
             ]
         },
+    ]
+
+    if not no_goal:
         # Goal sender
-        {
+        panes.append({
             'shell_command': [
                 'sleep 20',
                 f"ros2 launch mighty goal_sender.launch.py list_agents:=\"['NX01']\" list_goals:=\"['[{goal_x}, {goal_y}, {goal_z}]']\""
             ]
-        }
-    ]
+        })
 
     yaml_content = {
         'session_name': 'mighty_sim',
@@ -317,6 +321,12 @@ def main():
     )
 
     parser.add_argument(
+        '--no-goal',
+        action='store_true',
+        help='Do not auto-publish a terminal goal (lets you send goals manually)'
+    )
+
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help='Print the generated YAML without launching'
@@ -332,7 +342,7 @@ def main():
     if args.mode == 'multiagent':
         sim_env = 'fake_sim'
         agents = generate_multiagent_positions(args.num_agents, args.radius)
-        yaml_content = generate_multiagent_yaml(setup_bash, agents, sim_env, args.ros_domain_id, args.radius)
+        yaml_content = generate_multiagent_yaml(setup_bash, agents, sim_env, args.ros_domain_id, args.radius, no_goal=args.no_goal)
         print(f"[INFO] Mode: Multi-agent simulation with {args.num_agents} agents (sim_env={sim_env})")
     else:  # gazebo
         sim_env = 'gazebo'
@@ -365,7 +375,8 @@ def main():
             ros_domain_id=args.ros_domain_id,
             use_rviz=use_rviz,
             use_gazebo_gui=args.gazebo_gui,
-            use_ground_robot=use_ground_robot
+            use_ground_robot=use_ground_robot,
+            no_goal=args.no_goal
         )
         print(f"[INFO] Mode: Single-agent Gazebo simulation (sim_env={sim_env})")
         print(f"[INFO] Environment: {args.env} (world: {world_name})")

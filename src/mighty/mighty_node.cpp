@@ -261,6 +261,9 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("los_cells", 3);
   this->declare_parameter("min_len", 0.5);   // [m] minimum length between two waypoints after post processing
   this->declare_parameter("min_turn", 10.0); // [deg] minimum turn angle after post processing
+  this->declare_parameter("skip_path_smoothing", false);
+  this->declare_parameter("smooth_iterations", 50);
+  this->declare_parameter("smooth_alpha", 0.3);
 
   // Path push visualization parameters
   this->declare_parameter("use_state_update", true);
@@ -272,6 +275,7 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("min_dist_from_agent_to_traj", 6.0);
   this->declare_parameter("use_shrinked_box", false);
   this->declare_parameter("shrinked_box_size", 0.2);
+  this->declare_parameter("sfc_use_unknown_as_obstacle", false);
 
   // Map parameters
   this->declare_parameter("map_buffer", 6.0);
@@ -413,6 +417,8 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("use_2d_planning", false);
   this->declare_parameter("robot_height", 0.5);
   this->declare_parameter("obstacle_min_height", 0.3);
+  this->declare_parameter("use_column_any_occupied", true);
+  this->declare_parameter("column_min_z", 0.15);
   this->declare_parameter("terrain_cost_weight", 1.0);
   this->declare_parameter("terrain_cost_mode", std::string("max"));
   this->declare_parameter("ground_slab_margin", 0.3);
@@ -498,6 +504,9 @@ void MIGHTY_NODE::setParameters()
   par_.los_cells = this->get_parameter("los_cells").as_int();
   par_.min_len = this->get_parameter("min_len").as_double();
   par_.min_turn = this->get_parameter("min_turn").as_double();
+  par_.skip_path_smoothing = this->get_parameter("skip_path_smoothing").as_bool();
+  par_.smooth_iterations = this->get_parameter("smooth_iterations").as_int();
+  par_.smooth_alpha = this->get_parameter("smooth_alpha").as_double();
 
   // Path push visualization parameters
   par_.use_state_update = this->get_parameter("use_state_update").as_bool();
@@ -511,6 +520,7 @@ void MIGHTY_NODE::setParameters()
   par_.min_dist_from_agent_to_traj = this->get_parameter("min_dist_from_agent_to_traj").as_double();
   par_.use_shrinked_box = this->get_parameter("use_shrinked_box").as_bool();
   par_.shrinked_box_size = this->get_parameter("shrinked_box_size").as_double();
+  par_.sfc_use_unknown_as_obstacle = this->get_parameter("sfc_use_unknown_as_obstacle").as_bool();
 
   // Map parameters
   par_.map_buffer = this->get_parameter("map_buffer").as_double();
@@ -663,6 +673,8 @@ void MIGHTY_NODE::setParameters()
   par_.use_2d_planning = this->get_parameter("use_2d_planning").as_bool();
   par_.robot_height = this->get_parameter("robot_height").as_double();
   par_.obstacle_min_height = this->get_parameter("obstacle_min_height").as_double();
+  par_.use_column_any_occupied = this->get_parameter("use_column_any_occupied").as_bool();
+  par_.column_min_z = this->get_parameter("column_min_z").as_double();
   par_.terrain_cost_weight = this->get_parameter("terrain_cost_weight").as_double();
   par_.terrain_cost_mode = this->get_parameter("terrain_cost_mode").as_string();
   par_.ground_slab_margin = this->get_parameter("ground_slab_margin").as_double();
@@ -724,6 +736,7 @@ void MIGHTY_NODE::printParameters()
   RCLCPP_INFO(this->get_logger(), "LOS Cells: %d", par_.los_cells);
   RCLCPP_INFO(this->get_logger(), "Min Len: %f", par_.min_len);
   RCLCPP_INFO(this->get_logger(), "Min Turn: %f", par_.min_turn);
+  RCLCPP_INFO(this->get_logger(), "Skip Path Smoothing: %d", par_.skip_path_smoothing);
 
   // Path push visualization parameters
   RCLCPP_INFO(this->get_logger(), "Use State Update?: %d", par_.use_state_update);
@@ -736,6 +749,7 @@ void MIGHTY_NODE::printParameters()
   RCLCPP_INFO(this->get_logger(), "Min Dist from Agent to Traj: %f", par_.min_dist_from_agent_to_traj);
   RCLCPP_INFO(this->get_logger(), "Use Shrinked Box: %d", par_.use_shrinked_box);
   RCLCPP_INFO(this->get_logger(), "Shrinked Box Size: %f", par_.shrinked_box_size);
+  RCLCPP_INFO(this->get_logger(), "SFC Use Unknown As Obstacle: %d", par_.sfc_use_unknown_as_obstacle);
 
   // Map parameters
   RCLCPP_INFO(this->get_logger(), "Local Map Buffer: %f", par_.map_buffer);
@@ -2544,7 +2558,7 @@ BUILD_MSG:
 
 void MIGHTY_NODE::publishGround2DOccupied()
 {
-  if (!pub_ground_2d_occ_ || !par_.use_2d_planning)
+  if (!pub_ground_2d_occ_)
     return;
 
   auto map_util = mighty_ptr_->getMapUtil();
@@ -2556,7 +2570,7 @@ void MIGHTY_NODE::publishGround2DOccupied()
   const auto origin = map_util->getOrigin();
   const float res = static_cast<float>(map_util->getRes());
 
-  // Collect 2D occupied cells as 3D points at terrain height
+  // Collect 2D occupied cells as 3D points projected to z=0
   pcl::PointCloud<pcl::PointXYZI> cloud;
   for (int x = 0; x < dimX; ++x) {
     for (int y = 0; y < dimY; ++y) {
@@ -2564,7 +2578,7 @@ void MIGHTY_NODE::publishGround2DOccupied()
         pcl::PointXYZI pt;
         pt.x = origin(0) + (x + 0.5f) * res;
         pt.y = origin(1) + (y + 0.5f) * res;
-        pt.z = map_util->getTerrainHeight(x, y);
+        pt.z = 0.0f;
         pt.intensity = 1.0f;
         cloud.push_back(pt);
       }

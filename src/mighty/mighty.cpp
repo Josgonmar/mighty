@@ -275,9 +275,12 @@ bool MIGHTY::getSafeCorridor(const vec_Vecf<3> &global_path, const state &A)
   ellip.set_z_min_and_max(par_.z_min, par_.z_max);
   ellip.set_inflate_distance(par_.drone_radius);
 
-  // Get occupied points for decomposition
+  // Get obstacle points for decomposition
   vec_Vec3f base_uo;
-  hgp_manager_.getVecOccupied(base_uo);
+  if (par_.sfc_use_unknown_as_obstacle)
+    hgp_manager_.getVecUnknownOccupied(base_uo);
+  else
+    hgp_manager_.getVecOccupied(base_uo);
 
   // Empty obstacle arrays (dynamic obstacles handled via heat map, not corridors)
   vec_Vecf<3> obst_pos, obst_bbox;
@@ -650,8 +653,8 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
     }
     else
     {
-      local_A.pos[2] = 0.5;
-      local_G.pos[2] = 0.5;
+      local_A.pos[2] = par_.default_goal_z;
+      local_G.pos[2] = par_.default_goal_z;
     }
   }
 
@@ -765,7 +768,7 @@ bool MIGHTY::planLocalTrajectory(vec_Vecf<3> &global_path)
 
   if (par_.vehicle_type != "uav")
   {
-    local_A.pos[2] = par_.use_2d_planning ? 0.0 : 0.5;
+    local_A.pos[2] = par_.use_2d_planning ? 0.0 : par_.default_goal_z;
   }
 
   optimization_succeeded = generateLocalTrajectory(
@@ -859,13 +862,13 @@ bool MIGHTY::generateLocalTrajectory(const state &local_A, double A_time,
   // if using ground robot, we fix the z
   if (par_.vehicle_type != "uav")
   {
-    local_E.pos[2] = par_.use_2d_planning ? 0.0 : 0.5;
+    local_E.pos[2] = par_.use_2d_planning ? 0.0 : par_.default_goal_z;
   }
 
   whole_traj_solver_ptr->prepareSolverForReplan(A_time, global_path, safe_corridor_polytopes_whole_, local_trajs, local_A, local_E, initial_guess_computation_time, par_.use_multiple_initial_guesses);
 
-  // It's pushed in prepareSolverForReplan() so we get the pushed global path
-  whole_traj_solver_ptr->getGlobalPath(global_path);
+  // Skip the solver's pushed path — use the original DGP path instead
+  // whole_traj_solver_ptr->getGlobalPath(global_path);
 
   {
     std::lock_guard<std::mutex> lock(mtx_global_path_);

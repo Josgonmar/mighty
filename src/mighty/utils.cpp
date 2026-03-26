@@ -743,6 +743,59 @@ namespace mighty_utils
     path = std::move(filtered_path);
   }
 
+  void resamplePathUniform(vec_Vecf<3>& path, double spacing)
+  {
+    if (path.size() < 2 || spacing <= 0.0)
+    {
+      return;
+    }
+
+    // Compute cumulative arc lengths
+    std::vector<double> cum_len(path.size(), 0.0);
+    for (size_t i = 1; i < path.size(); i++)
+    {
+      cum_len[i] = cum_len[i - 1] + (path[i] - path[i - 1]).norm();
+    }
+
+    double total_len = cum_len.back();
+    if (total_len < 1e-9)
+    {
+      return;
+    }
+
+    // Number of segments: at least 2 points (start + goal)
+    int num_segments = std::max(1, static_cast<int>(std::ceil(total_len / spacing)));
+    double actual_spacing = total_len / num_segments;
+
+    vec_Vecf<3> resampled;
+    resampled.reserve(num_segments + 1);
+    resampled.push_back(path.front());
+
+    size_t seg = 0;  // current segment index in original path
+    for (int k = 1; k < num_segments; k++)
+    {
+      double target_len = k * actual_spacing;
+
+      // Advance seg until cum_len[seg+1] >= target_len
+      while (seg + 1 < path.size() - 1 && cum_len[seg + 1] < target_len)
+      {
+        seg++;
+      }
+
+      // Interpolate within segment [seg, seg+1]
+      double seg_start_len = cum_len[seg];
+      double seg_end_len = cum_len[seg + 1];
+      double seg_len = seg_end_len - seg_start_len;
+
+      double t = (seg_len > 1e-9) ? (target_len - seg_start_len) / seg_len : 0.0;
+      Eigen::Vector3d pt = path[seg] + t * (path[seg + 1] - path[seg]);
+      resampled.push_back(pt);
+    }
+
+    resampled.push_back(path.back());
+    path = std::move(resampled);
+  }
+
   double euclideanDistance(const Eigen::Vector3d &p1, const Eigen::Vector3d &p2)
   {
     return std::sqrt((p1[0] - p2[0]) * (p1[0] - p2[0]) +
