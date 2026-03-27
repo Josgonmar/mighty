@@ -124,7 +124,7 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
       std::string prefix = ns_.substr(0, ns_.size() - 2);
       char other_name[16];
       std::snprintf(other_name, sizeof(other_name), "%s%02d", prefix.c_str(), i);
-      std::string topic = "/lidar_registration/frame_align/" + ns_ + "/" + std::string(other_name);
+      std::string topic = "/frame_align/" + ns_ + "/" + std::string(other_name);
       frame_align_transforms_[i] = Eigen::Matrix4d::Identity();
       frame_align_received_[i] = false;
       auto sub = this->create_subscription<geometry_msgs::msg::TransformStamped>(
