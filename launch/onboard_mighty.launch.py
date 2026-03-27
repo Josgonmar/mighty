@@ -118,6 +118,9 @@ def generate_launch_description():
                 hw_params = yaml.safe_load(f)['mighty_node']['ros__parameters']
             parameters.update(hw_params)
 
+        # Check if MPC is enabled (skip pure pursuit)
+        use_mpc = parameters.get('use_mpc', False)
+
         # Update parameters for benchmarking
         parameters['file_path'] = data_file
         parameters['use_benchmark'] = bool(use_benchmark)
@@ -303,7 +306,9 @@ def generate_launch_description():
                     nodes_to_start.append(hw_odom_to_state_node)
                 elif robot_type in [STAR_ROBOT, RED_ROVER]:
                     # nodes_to_start.extend([hw_odom_to_state_node, pure_pursuit_node, static_tf_node, map2map_tf_node])
-                    nodes_to_start.extend([hw_odom_to_state_node, pure_pursuit_node, static_tf_node])
+                    nodes_to_start.extend([hw_odom_to_state_node, static_tf_node])
+                    if not use_mpc:
+                        nodes_to_start.append(pure_pursuit_node)
             else:
                 nodes_to_start.append(pose_twist_to_state_node)  # Vicon
         else:
@@ -312,7 +317,7 @@ def generate_launch_description():
             nodes_to_start.append(fake_sim_node) if not use_hardware else None
             nodes_to_start.append(robot_state_publisher_node) if parameters['sim_env'] == 'gazebo' else None
             nodes_to_start.append(spawn_entity_node) if parameters['sim_env'] == 'gazebo' else None
-            nodes_to_start.append(pure_pursuit_node) if use_ground_robot else None
+            nodes_to_start.append(pure_pursuit_node) if (use_ground_robot and not use_mpc) else None
             nodes_to_start.append(pcl_render_node) if parameters['sim_env'] == 'fake_sim' else None
 
         return nodes_to_start

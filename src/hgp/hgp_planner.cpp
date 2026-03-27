@@ -404,7 +404,6 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
     cMap_for_search = (map_util_->map_).data();
   }
 
-  // should we initialize the planner in constructor?
   graph_search_ = std::make_shared<mighty::GraphSearch>(cMap_for_search, map_util_, dim(0),
                                                        dim(1), zDim_for_search, eps, planner_verbose_,
                                                        global_planner_, w_unknown_);
@@ -451,7 +450,10 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   raw_path_ = ps;
   std::reverse(std::begin(raw_path_), std::end(raw_path_));
 
-  if (skip_path_smoothing_) {
+  if (disable_all_smoothing_) {
+    // No smoothing — use raw A* path directly
+    path_ = raw_path_;
+  } else if (skip_path_smoothing_) {
     // Heat-aware Laplacian smoothing (moves waypoints, doesn't remove them)
     path_ = smoothPathHeatAware(raw_path_, smooth_iterations_, smooth_alpha_);
   } else if (is_2d_mode_) {
@@ -519,12 +521,14 @@ vec_Vecf<3> HGPPlanner::smoothPathHeatAware(const vec_Vecf<3>& path,
         if (map_util_->get2DOccupancy(ci(0), ci(1)) != 0) continue;
       }
 
-      // Reject if heat increases too much
+      // Reject if heat increases too much (use 2D heat in 2D mode)
       if (heat_on) {
         Veci<3> oi = map_util_->floatToInt(smoothed[i]);
         Veci<3> ci = map_util_->floatToInt(candidate);
-        float h_old = map_util_->getHeat(oi(0), oi(1), oi(2));
-        float h_new = map_util_->getHeat(ci(0), ci(1), ci(2));
+        float h_old = is_2d_mode_ ? map_util_->getHeat2D(oi(0), oi(1))
+                                   : map_util_->getHeat(oi(0), oi(1), oi(2));
+        float h_new = is_2d_mode_ ? map_util_->getHeat2D(ci(0), ci(1))
+                                   : map_util_->getHeat(ci(0), ci(1), ci(2));
         if (h_new > h_old * 1.1 + 0.01) continue;
       }
 

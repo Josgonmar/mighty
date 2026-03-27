@@ -104,6 +104,7 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
   pub_own_traj_ = this->create_publisher<dynus_interfaces::msg::DynTraj>("/trajs", critical_qos);
   pub_goal_ = this->create_publisher<dynus_interfaces::msg::Goal>("goal", critical_qos);
   pub_trajectory_ = this->create_publisher<dynus_interfaces::msg::Trajectory>("trajectory", critical_qos);
+  pub_mpc_path_ = this->create_publisher<nav_msgs::msg::Path>("mpc_waypoints", 10);
   pub_goal_reached_ = this->create_publisher<std_msgs::msg::Empty>("goal_reached", critical_qos);
   pub_command_to_exec_time_ = this->create_publisher<std_msgs::msg::Float64>("command_to_exec_time", 10);
 
@@ -172,9 +173,22 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node")
   // Initialize the initial pose topic name
   initial_pose_topic_ = ns_ + "/init_pose";
 
-  if (par_.use_hardware || par_.sim_env != "fake_sim")
+  if (par_.use_hardware)
   {
-    // Synchronize the occupancy grid and unknown grid
+    // Hardware: subscribe independently (time-sync can fail due to timestamp mismatch)
+    sub_occupancy_grid_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("occupancy_grid",
+        rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_sensor_data)),
+        std::bind(&MIGHTY_NODE::occupancyMapCallback, this, std::placeholders::_1),
+        options_map);
+    sub_unknown_grid_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("unknown_grid",
+        rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_sensor_data)),
+        std::bind(&MIGHTY_NODE::unknownMapCallback, this, std::placeholders::_1),
+        options_map);
+    RCLCPP_INFO(this->get_logger(), "Hardware mode: subscribing to occupancy_grid and unknown_grid independently");
+  }
+  else if (par_.sim_env != "fake_sim")
+  {
+    // Gazebo sim: synchronize the occupancy grid and unknown grid
     occup_grid_sub_.subscribe(this, "occupancy_grid", rmw_qos_profile_sensor_data, options_map);
     unknown_grid_sub_.subscribe(this, "unknown_grid", rmw_qos_profile_sensor_data, options_map);
     sync_.reset(new Sync(MySyncPolicy(10), occup_grid_sub_, unknown_grid_sub_));
@@ -216,6 +230,7 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("vehicle_type", "uav");
   this->declare_parameter("provide_goal_in_global_frame", false);
   this->declare_parameter("use_hardware", false);
+  this->declare_parameter("use_mpc", false);
   this->declare_parameter("map_frame_id", "map");
   this->declare_parameter("use_frame_alignment", false);
   this->declare_parameter("num_agents", 10);
@@ -261,6 +276,8 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("los_cells", 3);
   this->declare_parameter("min_len", 0.5);   // [m] minimum length between two waypoints after post processing
   this->declare_parameter("min_turn", 10.0); // [deg] minimum turn angle after post processing
+  this->declare_parameter("heat_cutoff_ratio", 0.5);
+  this->declare_parameter("disable_all_smoothing", false);
   this->declare_parameter("skip_path_smoothing", false);
   this->declare_parameter("smooth_iterations", 50);
   this->declare_parameter("smooth_alpha", 0.3);
@@ -424,6 +441,7 @@ void MIGHTY_NODE::declareParameters()
   this->declare_parameter("ground_slab_margin", 0.3);
 
   this->declare_parameter("trajectory_downsample_points", 500);
+  this->declare_parameter("mpc_path_spacing", 0.05);
 }
 
 // ----------------------------------------------------------------------------
@@ -442,6 +460,7 @@ void MIGHTY_NODE::setParameters()
   par_.vehicle_type = this->get_parameter("vehicle_type").as_string();
   par_.provide_goal_in_global_frame = this->get_parameter("provide_goal_in_global_frame").as_bool();
   par_.use_hardware = this->get_parameter("use_hardware").as_bool();
+  par_.use_mpc = this->get_parameter("use_mpc").as_bool();
   par_.map_frame_id = this->get_parameter("map_frame_id").as_string();
   par_.use_frame_alignment = this->get_parameter("use_frame_alignment").as_bool();
   par_.num_agents = this->get_parameter("num_agents").as_int();
@@ -504,6 +523,8 @@ void MIGHTY_NODE::setParameters()
   par_.los_cells = this->get_parameter("los_cells").as_int();
   par_.min_len = this->get_parameter("min_len").as_double();
   par_.min_turn = this->get_parameter("min_turn").as_double();
+  par_.heat_cutoff_ratio = this->get_parameter("heat_cutoff_ratio").as_double();
+  par_.disable_all_smoothing = this->get_parameter("disable_all_smoothing").as_bool();
   par_.skip_path_smoothing = this->get_parameter("skip_path_smoothing").as_bool();
   par_.smooth_iterations = this->get_parameter("smooth_iterations").as_int();
   par_.smooth_alpha = this->get_parameter("smooth_alpha").as_double();
@@ -680,6 +701,7 @@ void MIGHTY_NODE::setParameters()
   par_.ground_slab_margin = this->get_parameter("ground_slab_margin").as_double();
 
   par_.trajectory_downsample_points = this->get_parameter("trajectory_downsample_points").as_int();
+  par_.mpc_path_spacing = this->get_parameter("mpc_path_spacing").as_double();
 }
 
 // ----------------------------------------------------------------------------
@@ -1038,7 +1060,10 @@ void MIGHTY_NODE::replanCallback()
   // Publish full trajectory for ground robot tracking (increments trajectory_id on replan)
   if (replanning_result)
   {
-    publishTrajectory();
+    if (par_.use_mpc)
+      publishMpcPath();
+    else
+      publishTrajectory();
   }
 
   // Publish command-to-execution time (time from goal received to first trajectory)
@@ -2069,6 +2094,81 @@ void MIGHTY_NODE::publishTrajectory()
 
 // ----------------------------------------------------------------------------
 
+void MIGHTY_NODE::publishMpcPath()
+{
+  // Get optimized trajectory setpoints (smooth quintic Hermite spline)
+  mighty_ptr_->retrieveGoalSetpoints(goal_setpoints_);
+
+  if (goal_setpoints_.size() < 2)
+    return;
+
+  nav_msgs::msg::Path path_msg;
+  path_msg.header.stamp = this->now();
+  path_msg.header.frame_id = par_.map_frame_id;
+
+  const double spacing = par_.mpc_path_spacing;
+
+  // Always include first point
+  auto addPose = [&](const state& sp) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header = path_msg.header;
+    pose.pose.position.x = sp.pos.x();
+    pose.pose.position.y = sp.pos.y();
+    pose.pose.position.z = sp.pos.z();
+    pose.pose.orientation.w = 1.0;
+    path_msg.poses.push_back(pose);
+  };
+
+  addPose(goal_setpoints_.front());
+  Eigen::Vector3d last_emitted = goal_setpoints_.front().pos;
+
+  // Walk through setpoints, emit when distance threshold exceeded
+  for (size_t i = 1; i < goal_setpoints_.size(); ++i)
+  {
+    double dist = (goal_setpoints_[i].pos - last_emitted).head<2>().norm();
+    if (dist >= spacing)
+    {
+      addPose(goal_setpoints_[i]);
+      last_emitted = goal_setpoints_[i].pos;
+    }
+  }
+
+  // Always include last point
+  const auto& last = goal_setpoints_.back();
+  if ((last.pos - last_emitted).head<2>().norm() > 1e-6)
+    addPose(last);
+
+  // Need at least 2 points for MPC
+  if (path_msg.poses.size() < 2)
+    return;
+
+  // Set yaw from direction to next waypoint
+  for (size_t i = 0; i < path_msg.poses.size(); ++i)
+  {
+    double yaw = 0.0;
+    if (i + 1 < path_msg.poses.size())
+    {
+      double dx = path_msg.poses[i+1].pose.position.x - path_msg.poses[i].pose.position.x;
+      double dy = path_msg.poses[i+1].pose.position.y - path_msg.poses[i].pose.position.y;
+      yaw = std::atan2(dy, dx);
+    }
+    else if (i > 0)
+    {
+      double dx = path_msg.poses[i].pose.position.x - path_msg.poses[i-1].pose.position.x;
+      double dy = path_msg.poses[i].pose.position.y - path_msg.poses[i-1].pose.position.y;
+      yaw = std::atan2(dy, dx);
+    }
+    path_msg.poses[i].pose.orientation.x = 0.0;
+    path_msg.poses[i].pose.orientation.y = 0.0;
+    path_msg.poses[i].pose.orientation.z = std::sin(yaw / 2.0);
+    path_msg.poses[i].pose.orientation.w = std::cos(yaw / 2.0);
+  }
+
+  pub_mpc_path_->publish(path_msg);
+}
+
+// ----------------------------------------------------------------------------
+
 /**
  * @brief Publish Sefe Corridor Polyhedra
  */
@@ -2420,6 +2520,8 @@ void MIGHTY_NODE::mapCallback(
     const sensor_msgs::msg::PointCloud2::ConstPtr &unk_msg)
 {
 
+  RCLCPP_INFO_ONCE(this->get_logger(), "mapCallback triggered — synced occupancy_grid + unknown_grid received");
+
   // use PCL's own Ptr (boost::shared_ptr)
   pcl::PointCloud<pcl::PointXYZ>::Ptr map_pc(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::fromROSMsg(*map_msg, *map_pc);
@@ -2456,6 +2558,16 @@ void MIGHTY_NODE::occupancyMapCallback(
   }
   publishGround2DOccupied();
   publishGround2DHeat();
+}
+
+// ----------------------------------------------------------------------------
+
+void MIGHTY_NODE::unknownMapCallback(
+    const sensor_msgs::msg::PointCloud2::ConstPtr &unk_msg)
+{
+  pcl::PointCloud<pcl::PointXYZ>::Ptr unk_pc(new pcl::PointCloud<pcl::PointXYZ>());
+  pcl::fromROSMsg(*unk_msg, *unk_pc);
+  mighty_ptr_->updateUnknownCloud(unk_pc);
 }
 
 // ----------------------------------------------------------------------------
@@ -2562,15 +2674,23 @@ void MIGHTY_NODE::publishGround2DOccupied()
     return;
 
   auto map_util = mighty_ptr_->getMapUtil();
-  if (!map_util || !map_util->has2DMap())
+  if (!map_util) {
+    RCLCPP_WARN_ONCE(this->get_logger(), "publishGround2DOccupied: map_util is null");
     return;
+  }
+  if (!map_util->has2DMap()) {
+    RCLCPP_WARN_ONCE(this->get_logger(), "publishGround2DOccupied: has2DMap()=false");
+    return;
+  }
+  RCLCPP_INFO_ONCE(this->get_logger(), "publishGround2DOccupied: publishing 2D occupied map");
 
   int dimX, dimY;
   map_util->get2DDimensions(dimX, dimY);
   const auto origin = map_util->getOrigin();
   const float res = static_cast<float>(map_util->getRes());
+  const float goal_z = static_cast<float>(par_.default_goal_z);
 
-  // Collect 2D occupied cells as 3D points projected to z=0
+  // Collect 2D occupied cells as 3D points projected to default_goal_z
   pcl::PointCloud<pcl::PointXYZI> cloud;
   for (int x = 0; x < dimX; ++x) {
     for (int y = 0; y < dimY; ++y) {
@@ -2578,7 +2698,7 @@ void MIGHTY_NODE::publishGround2DOccupied()
         pcl::PointXYZI pt;
         pt.x = origin(0) + (x + 0.5f) * res;
         pt.y = origin(1) + (y + 0.5f) * res;
-        pt.z = 0.0f;
+        pt.z = goal_z;
         pt.intensity = 1.0f;
         cloud.push_back(pt);
       }

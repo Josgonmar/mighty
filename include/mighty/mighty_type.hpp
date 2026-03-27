@@ -41,6 +41,7 @@ struct parameters
   std::string vehicle_type;
   bool provide_goal_in_global_frame;
   bool use_hardware;
+  bool use_mpc{false};
   std::string map_frame_id{"map"};
   bool use_frame_alignment{false};
   int num_agents{10};
@@ -89,7 +90,9 @@ struct parameters
   int los_cells;
   double min_len;  // [m] minimum length between two waypoints after post processing
   double min_turn; // [deg] minimum turn angle after post processing
-  bool skip_path_smoothing{false}; // [-] Skip path post-processing (use raw A* path)
+  double heat_cutoff_ratio{0.5};     // [-] Cells with heat > ratio * Hmax are impassable (0=disabled, 1=all blocked)
+  bool disable_all_smoothing{false}; // [-] Disable all path smoothing (use raw A* output)
+  bool skip_path_smoothing{false}; // [-] Skip LoS shortcutting, use Laplacian smoothing instead
   int smooth_iterations{50};       // [-] Number of heat-aware Laplacian smoothing passes
   double smooth_alpha{0.3};        // [-] Smoothing relaxation factor (0=none, 1=aggressive)
 
@@ -263,6 +266,7 @@ struct parameters
 
   // Trajectory publishing parameters
   int trajectory_downsample_points{500}; // Number of points to downsample trajectory to
+  double mpc_path_spacing{0.05};         // [m] Spacing between waypoints in MPC path
 };
 
 struct BasisConverter

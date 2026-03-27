@@ -29,6 +29,7 @@ find_package(dynus_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(gazebo_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(gazebo_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_eigen REQUIRED)
@@ -54,7 +55,7 @@ add_definitions(${PCL_DEFINITIONS})
 # add executables
 add_executable(mighty src/mighty/mighty_node.cpp src/mighty/mighty.cpp src/hgp/hgp_manager.cpp src/hgp/utils.cpp src/hgp/hgp_planner.cpp src/hgp/graph_search.cpp src/mighty/utils.cpp src/mighty/lbfgs_solver.cpp src/mighty/lbfgs_solver_utils.cpp)
 target_link_libraries(mighty ${PCL_LIBRARIES})
-ament_target_dependencies(mighty rclcpp example_interfaces dynus_interfaces visualization_msgs Eigen3 decomp_ros_msgs sensor_msgs std_msgs decomp_rviz_plugins decomp_test_node tf2_geometry_msgs tf2 tf2_ros tf2_eigen std_srvs pcl_ros)
+ament_target_dependencies(mighty rclcpp example_interfaces dynus_interfaces visualization_msgs Eigen3 decomp_ros_msgs sensor_msgs std_msgs nav_msgs decomp_rviz_plugins decomp_test_node tf2_geometry_msgs tf2 tf2_ros tf2_eigen std_srvs pcl_ros)
 
 # Add the fake_sim executable
 add_executable(fake_sim src/mighty/fake_sim.cpp)

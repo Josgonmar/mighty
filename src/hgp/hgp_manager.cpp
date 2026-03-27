@@ -75,6 +75,7 @@ void HGPManager::setParameters(const parameters& par) {
   map_util_->setStaticHeatParams(par.static_heat_alpha, par.static_heat_p, par.static_heat_Hmax,
                                  par.static_heat_rmax_m, par.static_heat_boundary_only,
                                  par.static_heat_apply_on_unknown, par.static_heat_exclude_dynamic);
+  map_util_->heat_cutoff_ratio_ = static_cast<float>(par.heat_cutoff_ratio);
 
   // Static heat radius function
   map_util_->setStaticHeatRadiusFunction(
@@ -113,10 +114,12 @@ void HGPManager::setupHGPPlanner(const std::string& global_planner, bool global_
   j_max_ = j_max;
   j_max_3d_ = Eigen::Vector3d(j_max, j_max, j_max);
 
-  // Create the HGP planner
-  planner_ptr_ = std::unique_ptr<HGPPlanner>(new HGPPlanner(
-      global_planner, global_planner_verbose, v_max, a_max, j_max, hgp_timeout_duration_ms,
-      w_unknown, w_align, decay_len_cells, w_side, los_cells, min_len, min_turn));
+  // Create the HGP planner only once; reuse on subsequent calls
+  if (!planner_ptr_) {
+    planner_ptr_ = std::unique_ptr<HGPPlanner>(new HGPPlanner(
+        global_planner, global_planner_verbose, v_max, a_max, j_max, hgp_timeout_duration_ms,
+        w_unknown, w_align, decay_len_cells, w_side, los_cells, min_len, min_turn));
+  }
 
   // Set max node expansion
   planner_ptr_->setMaxExpand(max_num_expansion);
@@ -124,16 +127,12 @@ void HGPManager::setupHGPPlanner(const std::string& global_planner, bool global_
   // Enable 2D A* mode only when use_2d_planning is on
   planner_ptr_->set2DMode(is_ground_robot_ && par_.use_2d_planning);
 
-  // Skip path smoothing if configured
+  // Path smoothing configuration
+  planner_ptr_->setDisableAllSmoothing(par_.disable_all_smoothing);
   planner_ptr_->setSkipPathSmoothing(par_.skip_path_smoothing);
   planner_ptr_->setSmoothParams(par_.smooth_iterations, par_.smooth_alpha);
 
-  // Create the map_util_for_planning
-  // This is the beginning of the planning, so we fetch the map_util_ and don't update it for the
-  // entire planning process (updating while planning makes the planner slower)
-  mtx_map_util_.lock();
-  map_util_for_planning_ = std::make_shared<mighty::VoxelMapUtil>(*map_util_);
-  mtx_map_util_.unlock();
+  // NOTE: map_util_for_planning_ is copied in solveHGP() — no need to copy it here too
 }
 
 void HGPManager::updateVmax(double v_max) {
@@ -302,13 +301,14 @@ bool HGPManager::solveHGP(const Vec3f& start_sent, const Vec3f& start_vel, const
     }
   }
 
-  // In 2D mode, lift path waypoints from z=0 reference to terrain height
-  if (is_ground_robot_ && map_util_for_planning_->has2DMap()) {
+  // For ground robots, set path z to the planning height (default_goal_z)
+  if (is_ground_robot_) {
+    const float plan_z = static_cast<float>(par_.default_goal_z);
     for (auto& wp : path) {
-      wp(2) = map_util_for_planning_->getTerrainHeightWorld(wp(0), wp(1));
+      wp(2) = plan_z;
     }
     for (auto& wp : raw_path) {
-      wp(2) = map_util_for_planning_->getTerrainHeightWorld(wp(0), wp(1));
+      wp(2) = plan_z;
     }
   }
 

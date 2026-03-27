@@ -219,7 +219,11 @@ class HGPPlanner {
   bool is_2d_mode_{false};
   void set2DMode(bool enabled) { is_2d_mode_ = enabled; }
 
-  // Skip path post-processing (use raw A* path with heat-aware smoothing)
+  // Disable all path smoothing (use raw A* path)
+  bool disable_all_smoothing_{false};
+  void setDisableAllSmoothing(bool enabled) { disable_all_smoothing_ = enabled; }
+
+  // Skip LoS shortcutting, use heat-aware Laplacian smoothing instead
   bool skip_path_smoothing_{false};
   void setSkipPathSmoothing(bool enabled) { skip_path_smoothing_ = enabled; }
 

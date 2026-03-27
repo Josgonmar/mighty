@@ -576,6 +576,15 @@ void GraphSearch::getSucc(const StatePtr& curr, std::vector<int>& succ_ids,
       continue;  // Occupied in 2D projection
     }
 
+    // Hard heat cutoff: treat cells with heat > cutoff_ratio * Hmax as impassable
+    if (use_heat && map_util_ && map_util_->staticHeatEnabled() && zDim_ == 1 &&
+        map_util_->heat_cutoff_ratio_ > 0.0f) {
+      float h = map_util_->getHeat2D(new_x, new_y);
+      if (h > map_util_->heat_cutoff_ratio_ * map_util_->static_heat_Hmax_) {
+        continue;
+      }
+    }
+
     int new_id = coordToId(new_x, new_y, new_z);
     if (new_id < 0 || new_id >= (int)hm_.size()) continue;
 
@@ -599,7 +608,9 @@ void GraphSearch::getSucc(const StatePtr& curr, std::vector<int>& succ_ids,
         (map_util_->dynamicHeatEnabled() || map_util_->staticHeatEnabled())) {
       const float w_heat = map_util_->getHeatWeight();
       if (w_heat > 0.0f) {
-        const float h = map_util_->getHeat(new_x, new_y, new_z);
+        // Use 2D heat for ground robots (zDim==1), 3D heat otherwise
+        const float h = (zDim_ == 1) ? map_util_->getHeat2D(new_x, new_y)
+                                      : map_util_->getHeat(new_x, new_y, new_z);
         step_cost += (double)(w_heat * h);
       }
     }
@@ -676,6 +687,14 @@ bool GraphSearch::jump(int x, int y, int z, int dx, int dy, int dz, int& new_x, 
   new_y = y + dy;
   new_z = z + dz;
   if (!isFree(new_x, new_y, new_z)) return false;
+
+  // Prevent corner-cutting in 2D mode: for diagonal moves, check axis-aligned neighbors
+  if (zDim_ == 1) {
+    const int move_norm = std::abs(dx) + std::abs(dy);
+    if (move_norm >= 2 && dx != 0 && dy != 0) {
+      if (!isFree(x + dx, y, z) || !isFree(x, y + dy, z)) return false;
+    }
+  }
 
   if (new_x == xGoal_ && new_y == yGoal_ && new_z == zGoal_) return true;
 

@@ -87,8 +87,10 @@ class MapUtil {
         // static_heat_mutex_ is default-constructed (mutexes cannot be copied)
         use_soft_cost_obstacles_(other.use_soft_cost_obstacles_),
         obstacle_soft_cost_(other.obstacle_soft_cost_),
+        heat_cutoff_ratio_(other.heat_cutoff_ratio_),
         // 2D ground robot map data
         map_2d_(other.map_2d_),
+        heat_2d_(other.heat_2d_),
         terrain_cost_(other.terrain_cost_),
         col_min_height_(other.col_min_height_),
         col_max_height_(other.col_max_height_),
@@ -168,10 +170,11 @@ class MapUtil {
     if (top > z_max) up = std::max(int(std::floor((z_max - center_map.z()) / res_)), 1);
     dimZ = down + up;
 
-    // 3) Compute origin (global coords of cell (0,0,0)) and clamp it
+    // 3) Compute origin (global coords of cell (0,0,0)) and snap to resolution grid
+    //    so that voxel boundaries align with the global mapper's grid
     Vec3f origin;
-    origin.x() = center_map.x() - (dimX * res_) / 2.0f;
-    origin.y() = center_map.y() - (dimY * res_) / 2.0f;
+    origin.x() = std::floor((center_map.x() - (dimX * res_) / 2.0f) / res_) * res_;
+    origin.y() = std::floor((center_map.y() - (dimY * res_) / 2.0f) / res_) * res_;
     origin.z() = center_map.z() - down * res_;
     // ensure origin.z >= z_ground and origin.z+dimZ*res <= z_max
     origin.z() = std::clamp(origin.z(), z_ground, z_max - dimZ * res_);
@@ -806,6 +809,17 @@ class MapUtil {
     const int idx = x + y * dim_(0) + z * dim_(0) * dim_(1);
     if (idx < 0 || idx >= (int)heat_.size()) return 0.0f;
     return heat_[(size_t)idx];
+  }
+
+  /** @brief Get 2D heat value at grid (x,y). Falls back to 3D heat at z=0 if no 2D heat. */
+  float getHeat2D(int x, int y) const {
+    if (!heat_2d_.empty()) {
+      if (x < 0 || x >= dim_(0) || y < 0 || y >= dim_(1)) return 0.0f;
+      const size_t idx = static_cast<size_t>(x) + static_cast<size_t>(dim_(0)) * y;
+      if (idx >= heat_2d_.size()) return 0.0f;
+      return heat_2d_[idx];
+    }
+    return getHeat(x, y, 0);
   }
 
   /** @brief Get positions of voxels with heat above a threshold for visualization.
@@ -1564,9 +1578,13 @@ class MapUtil {
   bool use_soft_cost_obstacles_{false};
   float obstacle_soft_cost_{100.0f};
 
+  // Heat cutoff ratio: cells with heat > ratio * Hmax are impassable (0=disabled)
+  float heat_cutoff_ratio_{0.5f};
+
   // ==================== 2D Ground Robot Map ====================
 
   std::vector<int8_t> map_2d_;         // 2D occupancy grid (dimX * dimY)
+  std::vector<float> heat_2d_;         // 2D static heat (dimX * dimY)
   std::vector<float> terrain_cost_;    // 2D terrain gradient cost (dimX * dimY)
   std::vector<float> col_min_height_;  // Per-column min occupied z in world coords
   std::vector<float> col_max_height_;  // Per-column max occupied z in world coords
@@ -1622,11 +1640,6 @@ class MapUtil {
             has_unknown = true;
           }
         }
-
-        // Unknown-only columns: skip (leave as free).
-        // Previously marked as occupied for safety, but this makes the
-        // entire unexplored area blocked for ground robots.
-        // Unknown handling is controlled by sfc_use_unknown_as_obstacle instead.
       }
     }
 
@@ -1706,20 +1719,46 @@ class MapUtil {
       }
     }
 
+    // Step 5: Compute 2D static heat halos around occupied cells
+    heat_2d_.assign(size_2d, 0.0f);
+    if (static_heat_enabled_) {
+      const int Rcell = static_cast<int>(std::ceil(static_heat_rmax_m_ / res_));
+      // Precompute 2D offsets within radius
+      struct Off2D { int dx, dy; float d_m; };
+      std::vector<Off2D> offsets_2d;
+      for (int dx = -Rcell; dx <= Rcell; ++dx) {
+        for (int dy = -Rcell; dy <= Rcell; ++dy) {
+          float d_m = res_ * std::sqrt(float(dx * dx + dy * dy));
+          if (d_m <= static_heat_rmax_m_)
+            offsets_2d.push_back({dx, dy, d_m});
+        }
+      }
+
+      for (int x0 = 0; x0 < dimX; ++x0) {
+        for (int y0 = 0; y0 < dimY; ++y0) {
+          const size_t src_idx = static_cast<size_t>(x0) + static_cast<size_t>(dimX) * y0;
+          if (map_2d_[src_idx] != val_occ_) continue;
+
+          for (const auto& o : offsets_2d) {
+            const int x = x0 + o.dx, y = y0 + o.dy;
+            if (x < 0 || x >= dimX || y < 0 || y >= dimY) continue;
+            const size_t idx = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+
+            // Distance-decay heat
+            const float u = std::min(1.0f, std::max(0.0f, o.d_m / static_heat_rmax_m_));
+            const float base = 1.0f - u;
+            float pw = (static_heat_p_ == 2) ? base * base :
+                        (static_heat_p_ == 3) ? base * base * base :
+                        std::pow(base, float(static_heat_p_));
+            float w = std::min(static_heat_alpha_ * pw, static_heat_Hmax_);
+            if (w > heat_2d_[idx]) heat_2d_[idx] = w;
+          }
+        }
+      }
+    }
+
     has_2d_map_ = true;
 
-    // Debug stats
-    int occ_count = 0, free_count = 0, unk_count = 0;
-    float max_tc = 0.0f;
-    for (size_t i = 0; i < size_2d; ++i) {
-      if (map_2d_[i] == val_occ_) ++occ_count;
-      else if (map_2d_[i] == val_free_) ++free_count;
-      if (terrain_cost_[i] > max_tc) max_tc = terrain_cost_[i];
-    }
-    std::cout << "[buildGroundMap2D] dimX=" << dimX << " dimY=" << dimY
-              << " occ=" << occ_count << " free=" << free_count
-              << " max_terrain_cost=" << max_tc
-              << " obstacle_min_height=" << obstacle_min_height << std::endl;
   }
 
   /** @brief Check if a 2D ground map has been built. */
@@ -1768,6 +1807,9 @@ class MapUtil {
 
   /** @brief Get raw pointer to the 2D occupancy map data for GraphSearch construction. */
   const int8_t* get2DMapData() const { return has_2d_map_ ? map_2d_.data() : nullptr; }
+
+  /** @brief Get raw pointer to the 2D heat data for GraphSearch. */
+  const float* get2DHeatData() const { return has_2d_map_ ? heat_2d_.data() : nullptr; }
 
   /** @brief Free a cell and its surroundings in the 2D map. */
   void free2DCell(int cx, int cy, float radius_m) {

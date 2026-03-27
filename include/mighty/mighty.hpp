@@ -132,6 +132,7 @@ public:
   void applyInitiPoseInverseTransform(PieceWisePol &pwp);
   void updateMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_map, const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_unk);
   void updateOccupancyMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_map);
+  void updateUnknownCloud(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_unk);
   void getPiecewiseQuinticPol(PieceWiseQuinticPol &pwp);
   std::shared_ptr<mighty::VoxelMapUtil> getMapUtil() const { return hgp_manager_.map_util_; }
 

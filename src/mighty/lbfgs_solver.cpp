@@ -917,13 +917,14 @@ void SolverLBFGS::prepareSolverForReplan(double t0,
     a0_ = initial_state.accel;
 
     // In 2D mode, force z boundary conditions: zero z-velocity and z-acceleration
+    // and fix all waypoint z to match the initial state's z (default_goal_z)
     if (is_2d_mode_)
     {
         v0_.z() = 0.0;
         a0_.z() = 0.0;
-        // Force all waypoint z to 0 (corridors are at z=0 reference)
+        const double plan_z = x0_.z();
         for (auto &wp : global_wps_)
-            wp.z() = 0.0;
+            wp.z() = plan_z;
     }
 
     // Copy the dynamic obstacles
@@ -1181,7 +1182,7 @@ void SolverLBFGS::reconstruct(
         // In 2D mode, clamp z-components to prevent drift
         if (is_2d_mode_)
         {
-            P[i].z() = 0.0;
+            P[i].z() = x0_.z();
             V[i].z() = 0.0;
             A[i].z() = 0.0;
         }

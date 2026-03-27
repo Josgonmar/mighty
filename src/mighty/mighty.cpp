@@ -349,8 +349,8 @@ void MIGHTY::computeMapSize(const Eigen::Vector3d &min_pos, const Eigen::Vector3
   wdy_ = std::max(dist_y + 2 * dynamic_buffer_y, par_.min_wdy);
   wdz_ = std::max(dist_z + 2 * dynamic_buffer_z, par_.min_wdz);
 
-  // Compute the base map center as the midpoint between the min and max positions.
-  map_center_ = (min_pos + max_pos) / 2.0;
+  // Use the agent's position as the map center (no shifting toward goal)
+  map_center_ = min_pos;
 }
 
 // ----------------------------------------------------------------------------
@@ -507,10 +507,7 @@ std::tuple<bool, bool> MIGHTY::replan(double last_replaning_computation_time, do
 
   // Check if we need to replan
   if (!checkReadyToReplan())
-  {
-    std::cout << bold << red << "Planner is not ready to replan" << reset << std::endl;
     return std::make_tuple(false, false);
-  }
 
   // Get states we need
   state local_state, local_G_term, last_plan_state;
@@ -523,7 +520,7 @@ std::tuple<bool, bool> MIGHTY::replan(double last_replaning_computation_time, do
     return std::make_tuple(false, false);
 
   if (par_.debug_verbose)
-    std::cout << "Housekeeping: " << timer_housekeeping.getElapsedMicros() / 1000.0 << " ms" << std::endl;
+    printf("[TIMING] Housekeeping: %.2f ms\n", timer_housekeeping.getElapsedMicros() / 1000.0);
 
   /* -------------------- Global Planning -------------------- */
 
@@ -531,24 +528,19 @@ std::tuple<bool, bool> MIGHTY::replan(double last_replaning_computation_time, do
   vec_Vecf<3> global_path;
   if (!generateGlobalPath(global_path, current_time, last_replaning_computation_time))
   {
-    if (par_.debug_verbose)
-      std::cout << "Global Planning: " << timer_global.getElapsedMicros() / 1000.0 << " ms" << std::endl;
+    if (par_.debug_verbose) printf("[TIMING] Global Planning (FAILED): %.2f ms\n", timer_global.getElapsedMicros() / 1000.0);
     return std::make_tuple(false, false);
   }
-  if (par_.debug_verbose)
-    std::cout << "Global Planning: " << timer_global.getElapsedMicros() / 1000.0 << " ms" << std::endl;
+  if (par_.debug_verbose) printf("[TIMING] Global Planning: %.2f ms\n", timer_global.getElapsedMicros() / 1000.0);
 
   /* -------------------- Local Trajectory Optimization -------------------- */
 
   MyTimer timer_local(true);
   if (!planLocalTrajectory(global_path))
   {
-    if (par_.debug_verbose)
-      std::cout << "Local Trajectory Optimization: " << timer_local.getElapsedMicros() / 1000.0 << " ms" << std::endl;
+    if (par_.debug_verbose) printf("[TIMING] Local Traj Opt (FAILED): %.2f ms\n", timer_local.getElapsedMicros() / 1000.0);
     return std::make_tuple(false, true);
   }
-  if (par_.debug_verbose)
-    std::cout << "Local Trajectory Optimization: " << timer_local.getElapsedMicros() / 1000.0 << " ms" << std::endl;
 
   /* -------------------- Append to Plan -------------------- */
 
@@ -631,6 +623,7 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
   computeG(local_A, local_G_term, par_.horizon);
 
   // Set up the HGP planner (since updateVmax() needs to be called after setupHGPPlanner, we use v_max_ from the last replan)
+  MyTimer timer_setup(true);
   hgp_manager_.setupHGPPlanner(par_.global_planner, par_.global_planner_verbose, map_res_, v_max_, par_.a_max, par_.j_max, par_.hgp_timeout_duration_ms, par_.max_num_expansion, par_.w_unknown, par_.w_align, par_.decay_len_cells, par_.w_side, par_.los_cells, par_.min_len, par_.min_turn);
 
   // Free start and goal if necessary
@@ -638,24 +631,13 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
     hgp_manager_.freeStart(local_A.pos, par_.free_start_factor);
   if (par_.use_free_goal)
     hgp_manager_.freeGoal(local_G.pos, par_.free_goal_factor);
+  if (par_.debug_verbose) printf("[TIMING]   HGP setup: %.2f ms\n", timer_setup.getElapsedMicros() / 1000.0);
 
-  // Debug
-  if (par_.debug_verbose)
-    std::cout << "Solving DGP" << std::endl;
-
-  // if using ground robot, fix z to terrain height (or 0 for 2D reference)
+  // if using ground robot, fix z to default_goal_z
   if (par_.vehicle_type != "uav")
   {
-    if (par_.use_2d_planning)
-    {
-      local_A.pos[2] = 0.0;
-      local_G.pos[2] = 0.0;
-    }
-    else
-    {
-      local_A.pos[2] = par_.default_goal_z;
-      local_G.pos[2] = par_.default_goal_z;
-    }
+    local_A.pos[2] = par_.default_goal_z;
+    local_G.pos[2] = par_.default_goal_z;
   }
 
   // 1) Build a direction hint from the *previous* global path
@@ -684,19 +666,19 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
   if (par_.vehicle_type != "uav")
     dir_hint[2] = 0.0;
 
-  // 2) Use this as the "start_vel" argument (magnitude doesn't matter; we use the direction)
   Vec3f start_dir_hint(dir_hint.x(), dir_hint.y(), dir_hint.z());
 
   // Solve HGP
+  MyTimer timer_solve(true);
   vec_Vecf<3> raw_global_path;
   if (!hgp_manager_.solveHGP(local_A.pos, start_dir_hint, local_G.pos, final_g_, par_.global_planner_huristic_weight, A_time, global_path, raw_global_path))
   {
-    if (par_.debug_verbose)
-      std::cout << bold << red << "HGP did not find a solution" << reset << std::endl;
+    if (par_.debug_verbose) printf("[TIMING]   HGP solve (FAILED): %.2f ms\n", timer_solve.getElapsedMicros() / 1000.0);
     hgp_failure_count_++;
     replanning_failure_count_++;
     return false;
   }
+  if (par_.debug_verbose) printf("[TIMING]   HGP solve: %.2f ms\n", timer_solve.getElapsedMicros() / 1000.0);
 
   // use this for map resizing
   {
@@ -704,10 +686,15 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3> &global_path, double current_time, d
     global_path_ = global_path;
   }
 
-  // For visualization
+  // For visualization — store the raw A* path (before smoothing/resampling)
   {
     std::lock_guard<std::mutex> lock(mtx_original_global_path_);
-    original_global_path_ = global_path;
+    original_global_path_ = raw_global_path;
+    // Fix z for ground robots
+    if (par_.vehicle_type != "uav") {
+      for (auto& wp : original_global_path_)
+        wp[2] = par_.default_goal_z;
+    }
   }
 
   // Debug
@@ -757,23 +744,28 @@ bool MIGHTY::planLocalTrajectory(vec_Vecf<3> &global_path)
   }
 
   // convex decomposition
+  MyTimer timer_sfc(true);
   if (!getSafeCorridor(global_path, local_A))
   {
+    if (par_.debug_verbose) printf("[TIMING]   Safe corridor (FAILED): %.2f ms\n", timer_sfc.getElapsedMicros() / 1000.0);
     replanning_failure_count_++;
     return false;
   }
+  if (par_.debug_verbose) printf("[TIMING]   Safe corridor: %.2f ms\n", timer_sfc.getElapsedMicros() / 1000.0);
 
   // Initialize flag
   bool optimization_succeeded = false;
 
   if (par_.vehicle_type != "uav")
   {
-    local_A.pos[2] = par_.use_2d_planning ? 0.0 : par_.default_goal_z;
+    local_A.pos[2] = par_.default_goal_z;
   }
 
+  MyTimer timer_opt(true);
   optimization_succeeded = generateLocalTrajectory(
       local_A, A_time, global_path, initial_guess_computation_time_,
       local_traj_computation_time_, whole_traj_solver_ptr_);
+  if (par_.debug_verbose) printf("[TIMING]   L-BFGS optimization: %.2f ms\n", timer_opt.getElapsedMicros() / 1000.0);
 
   if (par_.debug_verbose)
   {
@@ -862,7 +854,7 @@ bool MIGHTY::generateLocalTrajectory(const state &local_A, double A_time,
   // if using ground robot, we fix the z
   if (par_.vehicle_type != "uav")
   {
-    local_E.pos[2] = par_.use_2d_planning ? 0.0 : par_.default_goal_z;
+    local_E.pos[2] = par_.default_goal_z;
   }
 
   whole_traj_solver_ptr->prepareSolverForReplan(A_time, global_path, safe_corridor_polytopes_whole_, local_trajs, local_A, local_E, initial_guess_computation_time, par_.use_multiple_initial_guesses);
@@ -877,6 +869,8 @@ bool MIGHTY::generateLocalTrajectory(const state &local_A, double A_time,
 
   // update local_E
   local_E.pos = global_path.back();
+  if (par_.vehicle_type != "uav")
+    local_E.pos[2] = par_.default_goal_z;
   {
     std::lock_guard<std::mutex> lock(mtx_E_);
     E_ = local_E; // Update the local_E
@@ -1623,17 +1617,14 @@ void MIGHTY::changeDroneStatus(int new_status)
  */
 bool MIGHTY::checkReadyToReplan()
 {
-  return state_initialized_ &&
-         terminal_goal_initialized_ &&
-         hgp_manager_.isMapInitialized() &&
-         (!par_.use_hardware || (kdtree_map_initialized_
-                                 // && kdtree_unk_initialized_
-                                 ));
+  bool is_ready = state_initialized_ &&
+                  terminal_goal_initialized_ &&
+                  hgp_manager_.isMapInitialized() &&
+                  (!par_.use_hardware || (kdtree_map_initialized_
+                                          // && kdtree_unk_initialized_
+                                          ));
 
-  // if (!is_ready) printf("\033[1;31mNot ready to replan: state_initialized_=%d, terminal_goal_initialized_=%d, map_initialized_=%d, kdtree_map_initialized_=%d\033[0m\n",
-  //                            state_initialized_, terminal_goal_initialized_,
-  //                            hgp_manager_.isMapInitialized(),
-  //                            kdtree_map_initialized_ /*, kdtree_unk_initialized_*/);
+  return is_ready;
 }
 
 // ----------------------------------------------------------------------------
@@ -1820,6 +1811,24 @@ void MIGHTY::updateOccupancyMap(
     RCLCPP_WARN(
         rclcpp::get_logger("mighty"),
         "updateMap: member pclptr_map_ was null or empty; skipping KD-tree update");
+  }
+}
+
+// ----------------------------------------------------------------------------
+
+void MIGHTY::updateUnknownCloud(
+    const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &pclptr_unk)
+{
+  {
+    std::lock_guard<std::mutex> lk(mtx_kdtree_unk_);
+    pclptr_unk_ = pclptr_unk;
+  }
+  if (pclptr_unk_ && !pclptr_unk_->points.empty())
+  {
+    std::lock_guard<std::mutex> lk(mtx_kdtree_unk_);
+    kdtree_unk_.setInputCloud(pclptr_unk_);
+    hgp_manager_.updateVecUnknownOccupied(pclptr_to_vec(pclptr_unk_));
+    hgp_manager_.insertVecOccupiedToVecUnknownOccupied();
   }
 }
 

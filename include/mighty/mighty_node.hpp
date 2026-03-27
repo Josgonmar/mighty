@@ -30,6 +30,7 @@
 #include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <nav_msgs/msg/path.hpp>
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <fstream>                                         // for flie operations
@@ -100,6 +101,7 @@ namespace mighty
         void lookaheadPointCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
         void mapCallback(const sensor_msgs::msg::PointCloud2::ConstPtr &pcl2ptr_map_ros, const sensor_msgs::msg::PointCloud2::ConstPtr &pcl2ptr_unk_ros);
         void occupancyMapCallback(const sensor_msgs::msg::PointCloud2::ConstPtr &map_msg);
+        void unknownMapCallback(const sensor_msgs::msg::PointCloud2::ConstPtr &unk_msg);
         void goalReachedCheckCallback();
         void convertDynTrajMsg2DynTraj(const dynus_interfaces::msg::DynTraj &msg, std::shared_ptr<dynTraj> &traj, double current_time);
         void cleanUpOldTrajsCallback();
@@ -133,6 +135,7 @@ namespace mighty
         void publishActualTraj();
         void publishGoal();         // Publish the goal (trajectory points)
         void publishTrajectory();   // Publish the full trajectory with replan support
+        void publishMpcPath();      // Publish smoothed global path as nav_msgs/Path for MPC
         void publishPointG() const; // Publish the point G (projected terminal goal)
         void publishPointE() const; // Publish the point E (Local trajectory's goal)
         void publishPointA() const; // Publish the point A (starting point)
@@ -203,6 +206,7 @@ namespace mighty
         rclcpp::Publisher<dynus_interfaces::msg::DynTraj>::SharedPtr pub_own_traj_;
         rclcpp::Publisher<dynus_interfaces::msg::Goal>::SharedPtr pub_goal_;
         rclcpp::Publisher<dynus_interfaces::msg::Trajectory>::SharedPtr pub_trajectory_;
+        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_mpc_path_;
         rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_point_G_;
         rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_point_E_;
         rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_point_G_term_;
@@ -232,6 +236,10 @@ namespace mighty
         message_filters::Subscriber<sensor_msgs::msg::PointCloud2> occup_grid_sub_;
         message_filters::Subscriber<sensor_msgs::msg::PointCloud2> unknown_grid_sub_;
         std::shared_ptr<Sync> sync_;
+
+        // Independent map subscribers (fallback when sync fails, e.g. hardware)
+        rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_occupancy_grid_;
+        rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_unknown_grid_;
 
         // Visualization
         visualization_msgs::msg::MarkerArray dgp_path_marker_;
