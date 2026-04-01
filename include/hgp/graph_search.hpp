@@ -13,19 +13,20 @@
 
 #pragma once
 
-#include <boost/heap/d_ary_heap.hpp>  // boost::heap::d_ary_heap
-#include <hgp/data_type.hpp>
-#include <hgp/map_util.hpp>  // mighty::MapUtil
-#include <limits>            // std::numeric_limits
-#include <memory>            // std::shared_ptr
-#include <mutex>             // std::mutex
-#include <mighty/mighty_type.hpp>
-#include <mighty/utils.hpp>
-#include <timer.hpp>
+#include <limits>         // std::numeric_limits
+#include <memory>         // std::shared_ptr
+#include <mutex>          // std::mutex
 #include <unordered_map>  // std::unordered_map
 #include <vector>         // std::vector
 
-// TODO: ROS dependency (not ideal)
+#include <hgp/data_type.hpp>
+#include <hgp/map_util.hpp>  // mighty::MapUtil
+#include <mighty/mighty_type.hpp>
+#include <mighty/utils.hpp>
+
+#include <boost/heap/d_ary_heap.hpp>  // boost::heap::d_ary_heap
+#include <timer.hpp>
+
 #include <rclcpp/rclcpp.hpp>
 
 namespace mighty {
@@ -57,7 +58,7 @@ struct State {
   int x, y, z = 0;
   /// direction
   int dx, dy, dz;  // discrete coordinates of this node
-  /// id of predicessors
+  /// id of predecessors
   int parentId = -1;
 
   /// pointer to heap location
@@ -90,7 +91,11 @@ struct State {
       : id(id), x(x), y(y), z(z), dx(dx), dy(dy), dz(dz), g(g) {}
 };
 
-/// Search and prune neighbors for JPS 2D
+/** @brief Precomputed neighbor tables for 2D Jump Point Search.
+ *
+ *  Stores natural neighbors (ns), forced-neighbor checks (f1), and
+ *  forced-neighbor additions (f2) for each direction in the 2D grid.
+ */
 struct JPS2DNeib {
   // for each (dx,dy) these contain:
   //    ns: neighbors that are always added

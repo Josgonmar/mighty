@@ -1,9 +1,17 @@
+# /* ----------------------------------------------------------------------------
+#  * Copyright 2025, Kota Kondo, Aerospace Controls Laboratory
+#  * Massachusetts Institute of Technology
+#  * All Rights Reserved
+#  * Authors: Kota Kondo, et al.
+#  * See LICENSE file for the license information
+#  * -------------------------------------------------------------------------- */
+
 import os
 import subprocess
 import argparse
 
 def record_ros2_bag(bag_name, bag_path, agents, topics=None):
-    
+
     # Define the topics template that is common across all agents
     base_topics = [
         # "/agent_initial_guess_pos",

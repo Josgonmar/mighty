@@ -1,3 +1,11 @@
+# /* ----------------------------------------------------------------------------
+#  * Copyright 2025, Kota Kondo, Aerospace Controls Laboratory
+#  * Massachusetts Institute of Technology
+#  * All Rights Reserved
+#  * Authors: Kota Kondo, et al.
+#  * See LICENSE file for the license information
+#  * -------------------------------------------------------------------------- */
+
 import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -27,7 +35,7 @@ def generate_launch_description():
     z_arg = DeclareLaunchArgument('z', default_value='2.0', description='Initial z position of the quadrotor')
     yaw_arg = DeclareLaunchArgument('yaw', default_value='180', description='Initial yaw angle of the quadrotor')
     namespace_arg = DeclareLaunchArgument('namespace', default_value='NX01', description='Namespace of the nodes') # namespace
-    data_file_arg = DeclareLaunchArgument('data_file', default_value='/media/kkondo/T7/dynus/tro_paper/global_planner_benchmarking/dgp.csv', description='File name to store data') # file name to store data
+    data_file_arg = DeclareLaunchArgument('data_file', default_value='', description='File name to store data')
     global_planner_arg = DeclareLaunchArgument('global_planner', default_value='sjps', description='Global planner to use') # global planner
     use_benchmark_arg = DeclareLaunchArgument('use_benchmark', default_value='false', description='Flag to indicate whether to use the global planner benchmark') # global planner benchmark
     use_hardware_arg = DeclareLaunchArgument('use_hardware', default_value='false', description='Flag to indicate whether to use hardware or simulation') # flag to indicte if this is hardware or simulation
@@ -153,7 +161,6 @@ def generate_launch_description():
                     remappings=[('lidar_cloud_in', lidar_point_cloud_topic),
                                 ('depth_camera_cloud_in', f'{depth_camera_name}/depth/color/points')],
                     arguments=['--ros-args', '--log-level', 'error'],
-                    # prefix='xterm -e gdb -q -ex run --args', # gdb debugging
         )
 
         # Robot state publisher node
@@ -198,8 +205,6 @@ def generate_launch_description():
             ],
             emulate_tty=True,
             output='screen',
-            # prefix='xterm -e gdb -ex run --args', # gdb debugging
-            # arguments=['--ros-args', '--log-level', 'error']
         )
 
         # Pure pursuit controller for ground robot
@@ -226,8 +231,6 @@ def generate_launch_description():
             emulate_tty=True,
         )
 
-        # When using ground robot, we don't need to send the exact state to gazebo - the state will be taken care of by wheel controllers
-        # send_state_to_gazebo = False if use_ground_robot else True
         # Create a fake sim node
         fake_sim_node = Node(
                     package='mighty',
@@ -241,13 +244,11 @@ def generate_launch_description():
                                  "publish_tf": True,
                                  "publish_state": True,
                                  "use_ground_robot": use_ground_robot,
-                                #  "visual_level": parameters['visual_level'],
                                  "publish_odom": publish_odom,
                                  "odom_topic": odom_topic,
                                  "odom_frame_id": odom_frame_id,
                                  "base_frame_id": base_frame_id,
                                  "map_frame_id": map_frame_id}],
-                    # prefix='xterm -e gdb -q -ex run --args', # gdb debugging
                     output='screen',
         )
 
@@ -277,7 +278,6 @@ def generate_launch_description():
                 ('odometry', odometry_topic),
                 ('depth', 'pcl_render_node/depth')
             ],
-            # prefix='xterm -e gdb -q -ex run --args', # gdb debugging
         )
 
         # HW: Odom to state (DLIO remapping)
@@ -293,11 +293,6 @@ def generate_launch_description():
             name='static_tf_map_to_odom', output='screen',
             arguments=['0','0','0','0','0','0','1', f'{namespace}/map', f'{namespace}/odom'])
         
-        # map2map_tf_node = Node(
-        #     package='tf2_ros', executable='static_transform_publisher',
-        #     name='map2map_tf_node', output='screen',
-        #     arguments=['0','0','0','0','0','0','1', f'{namespace}/map', 'map'])
-
         # Return launch description
         nodes_to_start = [mighty_node]
         if use_hardware:
@@ -305,7 +300,6 @@ def generate_launch_description():
                 if robot_type == QUADROTOR:
                     nodes_to_start.append(hw_odom_to_state_node)
                 elif robot_type in [STAR_ROBOT, RED_ROVER]:
-                    # nodes_to_start.extend([hw_odom_to_state_node, pure_pursuit_node, static_tf_node, map2map_tf_node])
                     nodes_to_start.extend([hw_odom_to_state_node, static_tf_node])
                     if not use_mpc:
                         nodes_to_start.append(pure_pursuit_node)

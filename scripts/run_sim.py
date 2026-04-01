@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+
+# /* ----------------------------------------------------------------------------
+#  * Copyright 2025, Kota Kondo, Aerospace Controls Laboratory
+#  * Massachusetts Institute of Technology
+#  * All Rights Reserved
+#  * Authors: Kota Kondo, et al.
+#  * See LICENSE file for the license information
+#  * -------------------------------------------------------------------------- */
+
 """
 MIGHTY Simulation Launcher
 
@@ -68,6 +77,11 @@ def find_setup_bash(args_setup_bash: str = None) -> Path:
     sys.exit(1)
 
 
+def find_rviz_config() -> Path:
+    """Find the RViz config in the source tree (relative to this script)."""
+    script_path = Path(__file__).resolve()
+    # Script is in: <package>/scripts/run_sim.py, rviz is in: <package>/rviz/mighty.rviz
+    return script_path.parent.parent / 'rviz' / 'mighty.rviz'
 
 
 def generate_multiagent_positions(num_agents: int, radius: float = 10.0, z: float = 1.0):
@@ -92,15 +106,16 @@ def generate_multiagent_positions(num_agents: int, radius: float = 10.0, z: floa
     return agents
 
 
-def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_domain_id: int = 20, radius: float = 10.0, no_goal: bool = False) -> str:
+def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_domain_id: int = 20, radius: float = 10.0, no_goal: bool = False, rviz_config: Path = None) -> str:
     """Generate YAML for multi-agent fake simulation."""
     panes = []
 
     # Base station (simulator)
+    sim_cmd = 'ros2 launch mighty simulator.launch.py'
+    if rviz_config:
+        sim_cmd += f' rviz_config:={rviz_config}'
     panes.append({
-        'shell_command': [
-            'ros2 launch mighty simulator.launch.py'
-        ]
+        'shell_command': [sim_cmd]
     })
 
     # Agent panes
@@ -144,6 +159,47 @@ unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH
     return yaml.dump(yaml_content, default_flow_style=False, sort_keys=False)
 
 
+def generate_interactive_yaml(setup_bash: Path, ros_domain_id: int = 20, rviz_config: Path = None) -> str:
+    """Generate YAML for single-agent interactive simulation (click goals in RViz)."""
+    sim_cmd = 'ros2 launch mighty simulator.launch.py'
+    if rviz_config:
+        sim_cmd += f' rviz_config:={rviz_config}'
+    panes = [
+        # Base station (random forest map + RViz)
+        {
+            'shell_command': [sim_cmd]
+        },
+        # Single agent NX01 at center
+        {
+            'shell_command': [
+                'sleep 10',
+                'ros2 launch mighty onboard_mighty.launch.py namespace:=NX01 '
+                'x:=0.0 y:=0.0 z:=1.0 yaw:=0.0 sim_env:=fake_sim'
+            ]
+        },
+    ]
+
+    yaml_content = {
+        'session_name': 'mighty_sim',
+        'windows': [{
+            'window_name': 'main',
+            'layout': 'tiled',
+            'shell_command_before': [
+                f'''if [ -z "$SETUP_BASH" ] || [ ! -f "$SETUP_BASH" ]; then
+  echo "[ERROR] SETUP_BASH is missing or invalid: $SETUP_BASH" >&2
+  exit 1
+fi
+unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH
+. "$SETUP_BASH"''',
+                f'export ROS_DOMAIN_ID={ros_domain_id}'
+            ],
+            'panes': panes
+        }]
+    }
+
+    return yaml.dump(yaml_content, default_flow_style=False, sort_keys=False)
+
+
 def generate_gazebo_yaml(setup_bash: Path, goal: tuple, sim_env: str,
                          env: str = 'hard_forest',
                          start_pos: tuple = (0, 0, 3.0), start_yaw: float = 1.57,
@@ -159,7 +215,7 @@ def generate_gazebo_yaml(setup_bash: Path, goal: tuple, sim_env: str,
         {
             'shell_command': [
                 'source /usr/share/gazebo/setup.bash',
-                f'ros2 launch mighty base_mighty.launch.py use_dyn_obs:=false '
+                f'ros2 launch mighty base_mighty.launch.py '
                 f'use_gazebo_gui:={str(use_gazebo_gui).lower()} use_rviz:={str(use_rviz).lower()} '
                 f'env:={env} use_ground_robot:={str(use_ground_robot).lower()}'
             ]
@@ -177,6 +233,7 @@ def generate_gazebo_yaml(setup_bash: Path, goal: tuple, sim_env: str,
             'shell_command': [
                 'sleep 10',
                 f'ros2 launch global_mapper_ros global_mapper_node.launch.py use_gazebo:=true '
+                f'use_obstacle_tracker:=false '
                 f'param_file:={"global_mapper_ground_robot.yaml" if use_ground_robot else "global_mapper.yaml"}'
             ]
         },
@@ -229,9 +286,9 @@ def main():
 
     parser.add_argument(
         '--mode', '-m',
-        choices=['multiagent', 'gazebo'],
+        choices=['multiagent', 'gazebo', 'interactive'],
         required=True,
-        help='Simulation mode: multiagent (fake sensing) or gazebo (single agent with ACL mapper)'
+        help='Simulation mode: multiagent (fake sensing), gazebo (single agent with ACL mapper), or interactive (single agent, click goals in RViz)'
     )
 
     parser.add_argument(
@@ -334,15 +391,21 @@ def main():
 
     args = parser.parse_args()
 
-    # Find setup.bash path
+    # Find setup.bash path and rviz config
     setup_bash = find_setup_bash(args.setup_bash)
+    rviz_config = find_rviz_config()
     print(f"[INFO] Using setup.bash: {setup_bash}")
+    print(f"[INFO] Using rviz config: {rviz_config}")
 
     # Determine sim_env and generate YAML
-    if args.mode == 'multiagent':
+    if args.mode == 'interactive':
+        yaml_content = generate_interactive_yaml(setup_bash, args.ros_domain_id, rviz_config=rviz_config)
+        print(f"[INFO] Mode: Interactive single-agent simulation (sim_env=fake_sim)")
+        print(f"[INFO] Agent NX01 at (0, 0, 1.0) — use '2D Goal Pose' in RViz to send goals")
+    elif args.mode == 'multiagent':
         sim_env = 'fake_sim'
         agents = generate_multiagent_positions(args.num_agents, args.radius)
-        yaml_content = generate_multiagent_yaml(setup_bash, agents, sim_env, args.ros_domain_id, args.radius, no_goal=args.no_goal)
+        yaml_content = generate_multiagent_yaml(setup_bash, agents, sim_env, args.ros_domain_id, args.radius, no_goal=args.no_goal, rviz_config=rviz_config)
         print(f"[INFO] Mode: Multi-agent simulation with {args.num_agents} agents (sim_env={sim_env})")
     else:  # gazebo
         sim_env = 'gazebo'

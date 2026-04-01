@@ -1,3 +1,11 @@
+# /* ----------------------------------------------------------------------------
+#  * Copyright 2025, Kota Kondo, Aerospace Controls Laboratory
+#  * Massachusetts Institute of Technology
+#  * All Rights Reserved
+#  * Authors: Kota Kondo, et al.
+#  * See LICENSE file for the license information
+#  * -------------------------------------------------------------------------- */
+
 import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -25,9 +33,6 @@ def generate_launch_description():
     )
     use_gazebo_gui_arg = DeclareLaunchArgument(
         'use_gazebo_gui', default_value='false', description='Flag to enable or disable gazebo gui'
-    )
-    use_dyn_obs_arg = DeclareLaunchArgument(
-        'use_dyn_obs', default_value='true', description='Flag to enable or disable dynamic obstacles'
     )
     use_ground_robot_arg = DeclareLaunchArgument(
         'use_ground_robot', default_value='false', description='Use ground robot (affects RViz config)'
@@ -75,7 +80,6 @@ def generate_launch_description():
         world_path = PathJoinSubstitution([FindPackageShare('mighty'), 'worlds', world_file])
 
         use_rviz = convert_str_to_bool(LaunchConfiguration('use_rviz').perform(context))
-        use_dyn_obs = convert_str_to_bool(LaunchConfiguration('use_dyn_obs').perform(context))
         use_gazebo_gui = LaunchConfiguration('use_gazebo_gui').perform(context)
         use_ground_robot = convert_str_to_bool(LaunchConfiguration('use_ground_robot').perform(context))
 
@@ -113,27 +117,9 @@ def generate_launch_description():
             launch_arguments={'world': world_path, 'use_sim_time': 'false', 'gui': use_gazebo_gui, 'enable_gpu': 'true'}.items()
         )
 
-        # Number of dynamic obstacles
-        num_dyn_obstacles = 100 if env_value in ["empty_wo_ground"] else 50
-
-        # Dynamic obstacles
-        dynamic_obstacles_launch = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                PathJoinSubstitution([FindPackageShare('mighty'), 'launch', 'dyn_obstacles.launch.py'])
-            ),
-            launch_arguments={"num_obstacles": f"{num_dyn_obstacles}",
-                                "publish_rate_hz": "50.0",
-                                "seed": "0",
-                                "launch_forest_node":"true",
-                                "forest_start_delay":"2.0",
-                                "spawn_interval": "1.0",
-                                }.items()
-        )
-
         # Return launch description
         nodes_to_start = [gazebo_launch]
         nodes_to_start.append(rviz_node) if use_rviz else None
-        nodes_to_start.append(dynamic_obstacles_launch) if use_dyn_obs else None
 
         return nodes_to_start
 
@@ -141,7 +127,6 @@ def generate_launch_description():
         env_arg,
         use_rviz_arg,
         use_gazebo_gui_arg,
-        use_dyn_obs_arg,
         use_ground_robot_arg,
         benchmark_name_arg,
         OpaqueFunction(function=launch_setup)

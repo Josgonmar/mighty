@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+
+# /* ----------------------------------------------------------------------------
+#  * Copyright 2025, Kota Kondo, Aerospace Controls Laboratory
+#  * Massachusetts Institute of Technology
+#  * All Rights Reserved
+#  * Authors: Kota Kondo, et al.
+#  * See LICENSE file for the license information
+#  * -------------------------------------------------------------------------- */
+
 """
 Run Gazebo first:
   ros2 launch gazebo_ros gazebo.launch.py

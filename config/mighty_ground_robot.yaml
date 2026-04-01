@@ -98,8 +98,8 @@ mighty_node:
 
         # --- Global Planner ---
         global_planner: "astar_heat"                    # ["sjps", "astar_heat"]
-        inflation_dgp: 0.3                              # [m] Static obstacle inflation for global A* planning
-        dgp_timeout_duration_ms: 10000                  # [ms] Global planner timeout
+        inflation_hgp: 0.3                              # [m] Static obstacle inflation for global A* planning
+        hgp_timeout_duration_ms: 10000                  # [ms] Global planner timeout
         max_expand: 1000000                               # [-] Max A* node expansions
 
         # --- Local Planning ---
@@ -110,7 +110,7 @@ mighty_node:
         # --- L-BFGS Optimization Weights ---
         dynamic_weight: 0.0                            # [-] Dynamic obstacle avoidance weight
         time_weight: 1e+3                               # [-] Time cost weight
-        pos_anchor_weight: 1e+4                         # [-] Position anchor weight (penalizes deviation from DGP waypoints)
+        pos_anchor_weight: 1e+4                         # [-] Position anchor weight (penalizes deviation from HGP waypoints)
         stat_weight: 0.0                               # [-] Static obstacle weight
         jerk_weight: 1e+3                               # [-] Jerk smoothness weight
         dyn_constr_vel_weight: 1e+3                     # [-] Velocity constraint violation weight
@@ -149,12 +149,12 @@ mighty_node:
         flight_mode: "terminal_goal"                    # ["terminal_goal"] Only one mode exists
 
         # --- Global Planner Internals ---
-        factor_dgp: 1.0                                # [-] Do not change — resolution = factor_dgp * map_res
+        factor_hgp: 1.0                                # [-] Do not change — resolution = factor_hgp * map_res
         use_free_start: false                            # [-] Free the start voxel if occupied
         free_start_factor: 1.0                          # [-] Radius factor for start freeing
         use_free_goal: false                            # [-] Free the goal voxel if occupied
         free_goal_factor: 2.0                           # [-] Radius factor for goal freeing
-        global_planner_huristic_weight: 5.0             # [-] A* heuristic weight (higher = greedier)
+        global_planner_heuristic_weight: 5.0             # [-] A* heuristic weight (higher = greedier)
         heat_weight: 3.0                                # [-] Overall heat map weight in A* cost
         max_dist_vertexes: 0.5                          # [m] Max distance between path vertices
         w_unknown: 10.0                                  # [-] Cost weight for unknown cells

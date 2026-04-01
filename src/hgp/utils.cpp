@@ -10,8 +10,7 @@
 
 void vectorOfVectors2MarkerArray(vec_Vecf<3> traj, visualization_msgs::msg::MarkerArray* m_array,
                                  std_msgs::msg::ColorRGBA color, int type,
-                                 std::vector<double> radii,
-                                 const std::string& frame_id) {
+                                 std::vector<double> radii, const std::string& frame_id) {
   if (traj.size() == 0) return;
   geometry_msgs::msg::Point p_last = eigen2point(traj[0]);
 

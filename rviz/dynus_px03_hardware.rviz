@@ -9,7 +9,7 @@ Panels:
         - /Common1/TF1/Frames1
         - /PX031
         - /PX031/Planning1
-        - /PX031/Planning1/PX03 DGP path1/Topic1
+        - /PX031/Planning1/PX03 HGP path1/Topic1
         - /PX031/Mapping1
         - /PX031/Mapping1/PX03 Static Grid1/Topic1
         - /PX031/Others1
@@ -137,7 +137,7 @@ Visualization Manager:
           Displays:
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
-              Name: PX03 DGP path
+              Name: PX03 HGP path
               Namespaces:
                 {}
               Topic:
@@ -145,11 +145,11 @@ Visualization Manager:
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Best Effort
-                Value: /PX03/dgp_path_marker
+                Value: /PX03/hgp_path_marker
               Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
-              Name: PX03 DGP Free Path
+              Name: PX03 HGP Free Path
               Namespaces:
                 {}
               Topic:
@@ -157,7 +157,7 @@ Visualization Manager:
                 Durability Policy: Transient Local
                 History Policy: Keep Last
                 Reliability Policy: System Default
-                Value: /PX03/free_dgp_path_marker
+                Value: /PX03/free_hgp_path_marker
               Value: true
             - Alpha: 0.20000000298023224
               BoundColor: 255; 154; 140

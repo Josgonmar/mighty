@@ -96,18 +96,6 @@ add_library(imu_plugin SHARED src/sim/gazebo_ros_imu_sensor.cpp)
 target_link_libraries(imu_plugin ${GAZEBO_LIBRARIES})
 ament_target_dependencies(imu_plugin sensor_msgs gazebo_ros)
 
-# For dynamic forest node
-add_executable(dynamic_forest_node src/sim/dynamic_forest_node.cpp)
-ament_target_dependencies(dynamic_forest_node
-  rclcpp
-  geometry_msgs
-  gazebo_msgs
-  visualization_msgs
-  std_msgs
-  tf2_ros
-  dynus_interfaces
-)
-
 # install for launch and config files
 install(DIRECTORY
 launch
@@ -128,7 +116,6 @@ install(TARGETS
   convert_odom_to_state
   convert_vicon_to_state
   convert_velodyne_to_ros_time
-  dynamic_forest_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -149,7 +136,6 @@ install(PROGRAMS
   scripts/goal_sender.py
   scripts/goal_monitor_node.py
   scripts/generate_random_forest.py
-  benchmarking/dynamic_obstacle_benchmark_node.py
   benchmarking/unc_benchmark_node.py
   scripts/repub_rviz_2Dgoal.py
   scripts/frame_align_publisher.py

@@ -13,7 +13,6 @@
 #pragma once
 
 #include <omp.h>
-#include <pcl/kdtree/kdtree_flann.h>
 
 #include <algorithm>
 #include <cmath>
@@ -21,9 +20,13 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+
+#include <pcl/kdtree/kdtree_flann.h>
+
 #include <mighty/mighty_type.hpp>
 
 #include "hgp/data_type.hpp"
+
 #include "timer.hpp"
 
 namespace mighty {
@@ -735,7 +738,8 @@ class MapUtil {
   }
 
   /** @brief Set a per-seed radius function for static heat halo computation.
-   *  @param fn Function mapping seed voxel center (world coords) to halo radius; empty uses default.
+   *  @param fn Function mapping seed voxel center (world coords) to halo radius; empty uses
+   * default.
    *  @param default_radius_m Fallback radius when fn is not set.
    */
   void setStaticHeatRadiusFunction(const std::function<float(const Eigen::Vector3f&)>& fn,
@@ -769,7 +773,8 @@ class MapUtil {
   /** @brief Set the base tube radius for dynamic heat corridor computation. */
   void setDynHeatTubeRadius(float r) { dyn_heat_tube_radius_m_ = r; }
 
-  /** @brief Enable soft-cost mode where occupied cells receive a finite cost instead of being blocked.
+  /** @brief Enable soft-cost mode where occupied cells receive a finite cost instead of being
+   * blocked.
    *  @param enable If true, occupied cells are traversable with a soft cost penalty.
    *  @param cost The soft cost value assigned to occupied cells.
    */
@@ -910,7 +915,8 @@ class MapUtil {
     z_map_max_ = z_max;
   }
 
-  /** @brief Set the assumed maximum velocity of dynamic obstacles for inflation radius computation. */
+  /** @brief Set the assumed maximum velocity of dynamic obstacles for inflation radius computation.
+   */
   void setObstMaxVelocity(float obst_max_vel) {
     // Set obstacle maximum velocity
     obst_max_vel_ = obst_max_vel;
@@ -950,7 +956,7 @@ class MapUtil {
 
       // Increase the radius until a free point is found
       for (float radius = 1.0; radius < 5.0;
-           radius += 0.5)  // TODO: expose the radius as a parameter
+           radius += 0.5)
       {
         neighbor_indices.clear();
         getNeighborIndices(point_int, neighbor_indices, radius);
@@ -1077,7 +1083,6 @@ class MapUtil {
     }
 
     // Add buffer to the min and max coordinates to give some margin around the box.
-    // TODO: expose this buffer as a parameter.
     min -= Vec3f(0.5, 0.5, 0.5);  // min -= Vec3f
     max += Vec3f(0.5, 0.5, 0.5);  // max += Vec3f
 
@@ -1602,8 +1607,7 @@ class MapUtil {
    *  @param cost_mode "max" or "avg" aggregation of neighbor height deltas.
    */
   void buildGroundMap2D(float obstacle_min_height, float terrain_cost_weight,
-                        const std::string& cost_mode,
-                        bool use_column_any_occupied = true,
+                        const std::string& cost_mode, bool use_column_any_occupied = true,
                         float column_min_z = 0.0f) {
     if (dim_(0) <= 0 || dim_(1) <= 0 || dim_(2) <= 0) return;
 
@@ -1626,9 +1630,8 @@ class MapUtil {
         bool has_unknown = false;
 
         for (int z = 0; z < dimZ; ++z) {
-          const size_t idx_3d =
-              static_cast<size_t>(x) + static_cast<size_t>(dimX) * y +
-              static_cast<size_t>(dimX) * static_cast<size_t>(dimY) * z;
+          const size_t idx_3d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y +
+                                static_cast<size_t>(dimX) * static_cast<size_t>(dimY) * z;
 
           if (map_[idx_3d] == val_occ_) {
             const float world_z = origin_d_(2) + (z + 0.5f) * res_;
@@ -1724,13 +1727,15 @@ class MapUtil {
     if (static_heat_enabled_) {
       const int Rcell = static_cast<int>(std::ceil(static_heat_rmax_m_ / res_));
       // Precompute 2D offsets within radius
-      struct Off2D { int dx, dy; float d_m; };
+      struct Off2D {
+        int dx, dy;
+        float d_m;
+      };
       std::vector<Off2D> offsets_2d;
       for (int dx = -Rcell; dx <= Rcell; ++dx) {
         for (int dy = -Rcell; dy <= Rcell; ++dy) {
           float d_m = res_ * std::sqrt(float(dx * dx + dy * dy));
-          if (d_m <= static_heat_rmax_m_)
-            offsets_2d.push_back({dx, dy, d_m});
+          if (d_m <= static_heat_rmax_m_) offsets_2d.push_back({dx, dy, d_m});
         }
       }
 
@@ -1747,9 +1752,9 @@ class MapUtil {
             // Distance-decay heat
             const float u = std::min(1.0f, std::max(0.0f, o.d_m / static_heat_rmax_m_));
             const float base = 1.0f - u;
-            float pw = (static_heat_p_ == 2) ? base * base :
-                        (static_heat_p_ == 3) ? base * base * base :
-                        std::pow(base, float(static_heat_p_));
+            float pw = (static_heat_p_ == 2)   ? base * base
+                       : (static_heat_p_ == 3) ? base * base * base
+                                               : std::pow(base, float(static_heat_p_));
             float w = std::min(static_heat_alpha_ * pw, static_heat_Hmax_);
             if (w > heat_2d_[idx]) heat_2d_[idx] = w;
           }
@@ -1758,7 +1763,6 @@ class MapUtil {
     }
 
     has_2d_map_ = true;
-
   }
 
   /** @brief Check if a 2D ground map has been built. */
