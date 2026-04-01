@@ -1536,74 +1536,52 @@ void MIGHTY::updateMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& pclptr_ma
   double traj_max_time = 0.0;
 
   if (par_.use_heat_map && par_.dynamic_heat_enabled && !trajs.empty()) {
-    obst_pos.reserve(trajs.size());
-    obst_bbox.reserve(trajs.size());
-    const double lookahead_time = 3.0;
-    traj_max_time = lookahead_time;
+    // Filter obstacles within map and planning horizon
+    std::vector<std::shared_ptr<dynTraj>> selected_trajs;
+    selected_trajs.reserve(trajs.size());
 
     for (const auto& traj : trajs) {
       if (!traj) continue;
       Eigen::Vector3d pos = traj->eval(current_time);
+      double dist = (pos - local_state.pos).norm();
+      if (dist > par_.horizon) continue;
+
       obst_pos.push_back(pos.cast<double>());
       Eigen::Vector3d bbox_half = traj->bbox / 2.0;
       obst_bbox.push_back(bbox_half.cast<double>());
+      selected_trajs.push_back(traj);
     }
 
-    // Sample predicted positions along each trajectory
-    if (par_.heat_num_samples > 0) {
-      std::vector<vec_Vecf<3>> dyn_pred_samples;
-      std::vector<float> dyn_pred_times;
-      const size_t N = trajs.size();
-      dyn_pred_samples.resize(N);
-      const int num_samples = par_.heat_num_samples;
+    // Prediction horizon: how far into the future to sample trajectories
+    const double Th = par_.prediction_horizon;
+    traj_max_time = Th;
 
-      double max_horizon = 0.0;
-      for (size_t k = 0; k < N; ++k) {
-        if (!trajs[k]) continue;
-        double duration = 0.0;
-        switch (trajs[k]->mode) {
-          case dynTraj::Mode::Piecewise:
-            if (trajs[k]->pwp.times.size() >= 2)
-              duration = trajs[k]->pwp.times.back() - trajs[k]->pwp.times.front();
-            break;
-          case dynTraj::Mode::Quintic:
-            duration = trajs[k]->poly_end_time - trajs[k]->poly_start_time;
-            break;
-          default:
-            duration = lookahead_time;
-            break;
-        }
-        max_horizon = std::max(max_horizon, std::max(0.0, duration));
+    // Sample predicted positions along each trajectory at future times from NOW
+    if (par_.heat_num_samples > 0 && Th > 0.0 && !selected_trajs.empty()) {
+      const int M = par_.heat_num_samples;
+
+      // Build time samples: [0, Th] relative to current time
+      std::vector<float> pred_times(M);
+      for (int j = 0; j < M; ++j) {
+        const double a = (M == 1) ? 0.0 : (double)j / (double)(M - 1);
+        pred_times[j] = static_cast<float>(a * Th);
       }
-      if (max_horizon < 1e-3) max_horizon = lookahead_time;
 
-      for (size_t k = 0; k < N; ++k) {
-        if (!trajs[k]) continue;
-        double t_start = 0.0;
-        switch (trajs[k]->mode) {
-          case dynTraj::Mode::Piecewise:
-            if (!trajs[k]->pwp.times.empty()) t_start = trajs[k]->pwp.times.front();
-            break;
-          case dynTraj::Mode::Quintic:
-            t_start = trajs[k]->poly_start_time;
-            break;
-          default:
-            t_start = current_time;
-            break;
-        }
-        dyn_pred_samples[k].reserve(num_samples);
-        for (int j = 0; j < num_samples; ++j) {
-          const double t = t_start + (double)j * max_horizon / (double)(num_samples - 1);
-          Eigen::Vector3d pred_pos = trajs[k]->eval(t);
-          dyn_pred_samples[k].push_back(pred_pos.cast<double>());
+      // Sample each trajectory at (current_time + pred_times[j])
+      std::vector<vec_Vecf<3>> pred_samples(selected_trajs.size());
+      for (size_t k = 0; k < selected_trajs.size(); ++k) {
+        pred_samples[k].resize(M);
+        for (int j = 0; j < M; ++j) {
+          const double t_abs = current_time + (double)pred_times[j];
+          Eigen::Vector3d pk = selected_trajs[k]->eval(t_abs);
+          if (!std::isfinite(pk.x()) || !std::isfinite(pk.y()) || !std::isfinite(pk.z())) {
+            pk = selected_trajs[k]->eval(current_time);
+          }
+          pred_samples[k][j] = pk;
         }
       }
 
-      dyn_pred_times.resize(num_samples);
-      for (int j = 0; j < num_samples; ++j)
-        dyn_pred_times[j] = (float)j * (float)max_horizon / (float)(num_samples - 1);
-
-      hgp_manager_.setDynamicPredictedSamples(dyn_pred_samples, dyn_pred_times);
+      hgp_manager_.setDynamicPredictedSamples(pred_samples, pred_times);
     }
   }
 

@@ -106,11 +106,11 @@ mighty_node:
         traj_lifetime: 7.0                              # [s] Discard obstacle trajectories older than this
 
         # --- Dynamic Obstacle Heat (soft costs) ---
-        heat_alpha0: 1.0                                # [-] Weight for reachability blob
-        heat_alpha1: 5.0                                # [-] Weight for trajectory tube
-        heat_Hmax: 50.0                                 # [-] Maximum dynamic heat value
+        heat_alpha0: 0.2                                # [-] Weight for reachability blob
+        heat_alpha1: 1.0                                # [-] Weight for trajectory tube
+        heat_Hmax: 2.0                                  # [-] Maximum dynamic heat value
         dyn_base_inflation_m: 0.5                       # [m] Base inflation for dynamic obstacle bboxes
-        dyn_heat_tube_radius_m: 1.0                     # [m] Heat corridor radius
+        dyn_heat_tube_radius_m: 0.5                     # [m] Heat corridor radius
 
         # --- Static Obstacle Heat (boundary halo) ---
         static_heat_alpha: 2.0                          # [-] Peak heat at obstacle boundary
@@ -158,8 +158,8 @@ mighty_node:
         dynamic_as_occupied_future: false                # [-] Mark obstacle's future cells as hard-occupied
         heat_p: 2                                       # [-] Reachability blob falloff power
         heat_q: 2                                       # [-] Trajectory tube falloff power
-        heat_tau_ratio: 2.0                             # [-] Time decay ratio for heat
-        heat_gamma: 0.1                                 # [m/s] Tube radius growth rate over prediction time
+        heat_tau_ratio: 0.5                             # [-] Time decay ratio for heat
+        heat_gamma: 0.0                                 # [m/s] Tube radius growth rate over prediction time
         heat_num_samples: 15                            # [-] Samples for heat computation
         static_heat_enabled: true                       # [-] Enable static obstacle heat
         static_heat_p: 2                                # [-] Static heat falloff power

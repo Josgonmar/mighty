@@ -129,8 +129,9 @@ struct parameters {
   float heat_Hmax{10.0f};
   float obst_max_vel{1.0f};
   float dyn_base_inflation_m{0.5f};
-  float dyn_heat_tube_radius_m{2.0f};
+  float dyn_heat_tube_radius_m{0.5f};
   int heat_num_samples{15};
+  double prediction_horizon{3.0};
   bool static_heat_enabled{false};
   float static_heat_alpha{2.0f};
   int static_heat_p{2};

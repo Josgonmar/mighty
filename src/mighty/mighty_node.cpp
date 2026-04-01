@@ -355,6 +355,7 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("dyn_base_inflation_m", 0.5);
   this->declare_parameter("dyn_heat_tube_radius_m", 2.0);
   this->declare_parameter("heat_num_samples", 15);
+  this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("static_heat_enabled", false);
   this->declare_parameter("static_heat_alpha", 2.0);
   this->declare_parameter("static_heat_p", 2);
@@ -601,6 +602,7 @@ void MIGHTY_NODE::setParameters() {
   par_.dyn_base_inflation_m = this->get_parameter("dyn_base_inflation_m").as_double();
   par_.dyn_heat_tube_radius_m = this->get_parameter("dyn_heat_tube_radius_m").as_double();
   par_.heat_num_samples = this->get_parameter("heat_num_samples").as_int();
+  par_.prediction_horizon = this->get_parameter("prediction_horizon").as_double();
   par_.static_heat_enabled = this->get_parameter("static_heat_enabled").as_bool();
   par_.static_heat_alpha = this->get_parameter("static_heat_alpha").as_double();
   par_.static_heat_p = this->get_parameter("static_heat_p").as_int();
