@@ -129,7 +129,7 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node") {
   pub_goal_ = this->create_publisher<dynus_interfaces::msg::Goal>("goal", critical_qos);
   pub_trajectory_ =
       this->create_publisher<dynus_interfaces::msg::Trajectory>("trajectory", critical_qos);
-  pub_mpc_path_ = this->create_publisher<path_msgs::msg::SpeedyPath>("mpc_waypoints", 10);
+  pub_mpc_path_ = this->create_publisher<dynus_interfaces::msg::SpeedyPath>("mpc_waypoints", 10);
   pub_goal_reached_ = this->create_publisher<std_msgs::msg::Empty>("goal_reached", critical_qos);
   pub_command_to_exec_time_ =
       this->create_publisher<std_msgs::msg::Float64>("command_to_exec_time", 10);
@@ -2064,7 +2064,7 @@ void MIGHTY_NODE::publishMpcPath() {
 
   if (goal_setpoints_.size() < 2) return;
 
-  path_msgs::msg::SpeedyPath path_msg;
+  dynus_interfaces::msg::SpeedyPath path_msg;
   path_msg.header.stamp = this->now();
   path_msg.header.frame_id = par_.map_frame_id;
 
