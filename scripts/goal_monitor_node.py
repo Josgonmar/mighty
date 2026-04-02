@@ -42,21 +42,45 @@ class GoalMonitorNode(Node):
         self.get_logger().info(f"Namespace: {self.namespace}")
 
         # Parameters
-        self.declare_parameter('goal_tolerance', 1.0)  # Distance tolerance to consider goal reached
+        self.declare_parameter('goal_tolerance', 1.0)
         self.goal_tolerance = self.get_parameter('goal_tolerance').value
         self.declare_parameter('use_hardware', False)
         self.use_hardware = self.get_parameter('use_hardware').value
+        self.declare_parameter('use_ground_robot', False)
+        use_ground_robot = self.get_parameter('use_ground_robot').value
+        self.declare_parameter('odom_type', 'dlio')  # "dlio" or "mocap"
+        odom_type = self.get_parameter('odom_type').value
+        self.declare_parameter('goal_type', 1)  # 1 or 2 (only for mocap mode)
+        goal_type = self.get_parameter('goal_type').value
         self.declare_parameter('num_agents', 10)
         num_agents = self.get_parameter('num_agents').value
         self.declare_parameter('radius', 10.0)
         radius = self.get_parameter('radius').value
-        self.distance_check_frequency = 1.0  # Frequency to check the distance to the goal
+        self.distance_check_frequency = 1.0
         self.current_goal_index = 0
 
-        # Compute swap goals dynamically based on circle formation.
-        if self.namespace.startswith('NX'):
+        z = 0.2 if use_ground_robot else 1.0
+
+        # Hardware ground robot: fixed goal pairs based on odom_type
+        if self.use_hardware and use_ground_robot:
+            if odom_type == 'mocap':
+                if goal_type == 1:
+                    self.goal_points = [[4.0, 4.0, z], [-4.0, -4.0, z]]
+                else:
+                    self.goal_points = [[-4.0, 4.0, z], [4.0, -4.0, z]]
+                self.get_logger().info(
+                    f"HW ground robot mocap goals (type {goal_type}): "
+                    f"{self.goal_points[0]} <-> {self.goal_points[1]}")
+            else:  # dlio
+                self.goal_points = [[0.0, 0.0, z], [11.0, 0.0, z]]
+                self.get_logger().info(
+                    f"HW ground robot DLIO goals: "
+                    f"{self.goal_points[0]} <-> {self.goal_points[1]}")
+
+        # Simulation: circle formation swap
+        elif self.namespace.startswith('NX'):
             agent_index = int(self.namespace[2:])  # NX01 -> 1
-            own_x, own_y, z, opp_x, opp_y, _ = circle_position(agent_index, num_agents, radius, z=1.0)
+            own_x, own_y, _, opp_x, opp_y, _ = circle_position(agent_index, num_agents, radius, z=z)
             self.goal_points = [[opp_x, opp_y, z], [own_x, own_y, z]]
             self.get_logger().info(
                 f"Circle swap goals (N={num_agents}, R={radius}): "
@@ -64,7 +88,7 @@ class GoalMonitorNode(Node):
 
         elif self.namespace.startswith('RR'):
             agent_index = int(self.namespace[2:])  # RR01 -> 1
-            own_x, own_y, z, opp_x, opp_y, _ = circle_position(agent_index, num_agents, radius, z=0.5)
+            own_x, own_y, _, opp_x, opp_y, _ = circle_position(agent_index, num_agents, radius, z=z)
             self.goal_points = [[opp_x, opp_y, z], [own_x, own_y, z]]
             self.get_logger().info(
                 f"Circle swap goals (N={num_agents}, R={radius}): "
