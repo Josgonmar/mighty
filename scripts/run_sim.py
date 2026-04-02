@@ -254,24 +254,11 @@ def generate_multiagent_ground_yaml(setup_bash: Path, agents: list, radius: floa
             ]
         })
 
-        # MPC controller (need per-agent config with correct namespace)
-        # Override topics via ros args since mpc_sim.yaml is for NX01
+        # MPC controller (namespaced — topics auto-resolve under /{ns}/)
         panes.append({
             'shell_command': [
                 'sleep 15',
-                f'ros2 run mpc mpc_node --ros-args '
-                f'-p use_tf_pose:=true '
-                f'-p base_frame:={ns}/base_link '
-                f'-p tracking_frame:=map '
-                f'-p path_topic:=/{ns}/mpc_waypoints '
-                f'-p cmd_vel_topic:=/{ns}/cmd_vel '
-                f'-p goal_tolerance:=0.5 '
-                f'-p control_rate_hz:=30.0 '
-                f'-p dt:=0.05 -p N_horizon:=20 '
-                f'-p v_min:=0.0 -p v_max:=1.0 -p w_max:=0.5 '
-                f'-p max_linear_accel:=0.5 '
-                f'-p Q_pos:=5.0 -p Q_yaw:=1.0 '
-                f'-p R_v:=0.1 -p R_w:=0.05 -p dR_v:=0.1 -p dR_w:=0.01'
+                f'ros2 launch mpc mpc.launch.py namespace:={ns} params_file:={mpc_config}'
             ]
         })
 
@@ -454,7 +441,7 @@ def generate_dyn_test_ground_mpc_yaml(setup_bash: Path, ros_domain_id: int = 7) 
         {
             'shell_command': [
                 'sleep 15',
-                f'ros2 launch mpc mpc.launch.py params_file:={mpc_config}'
+                f'ros2 launch mpc mpc.launch.py namespace:=NX01 params_file:={mpc_config}'
             ]
         },
     ]

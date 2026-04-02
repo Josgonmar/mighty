@@ -57,6 +57,8 @@ def generate_launch_description():
         description='Simulated frame offset qz (empty = use config default)')
     sim_frame_offset_qw_arg = DeclareLaunchArgument('sim_frame_offset_qw', default_value='',
         description='Simulated frame offset qw (empty = use config default)')
+    twist_topic_arg = DeclareLaunchArgument('twist_topic', default_value='twist',
+        description='Twist topic for Vicon/mocap state converter (e.g., mocap/twist)')
 
     # Need to be the same as simulartor.launch.py
     map_size_x_arg = DeclareLaunchArgument('map_size_x', default_value='20.0')
@@ -198,16 +200,17 @@ def generate_launch_description():
             arguments=['-topic', 'robot_description', '-entity', namespace, '-x', x, '-y', y, '-z', z, '-Y', yaw, '--ros-args', '--log-level', 'error'],
         )
         
-        # Convert pose and twist (from Vicon) to state
+        # Convert pose and twist (from Vicon/mocap) to state
+        twist_topic = LaunchConfiguration('twist_topic').perform(context)
         pose_twist_to_state_node = Node(
             package='mighty',
             executable='convert_vicon_to_state',
             name='convert_vicon_to_state',
             namespace=namespace,
             remappings=[
-                ('world', 'world'),  # Remap incoming PoseStamped topic
-                ('twist', 'twist'),  # Remap incoming TwistStamped topic
-                ('state', 'state')   # Remap outgoing State topic
+                ('world', 'world'),        # Remap incoming PoseStamped topic
+                ('twist', twist_topic),     # Remap incoming TwistStamped topic (e.g., mocap/twist)
+                ('state', 'state')          # Remap outgoing State topic
             ],
             emulate_tty=True,
             output='screen',
@@ -351,5 +354,6 @@ def generate_launch_description():
         use_frame_alignment_arg,
         sim_frame_offset_qz_arg,
         sim_frame_offset_qw_arg,
+        twist_topic_arg,
         OpaqueFunction(function=launch_setup)
     ])
