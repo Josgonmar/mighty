@@ -129,7 +129,7 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node") {
   pub_goal_ = this->create_publisher<dynus_interfaces::msg::Goal>("goal", critical_qos);
   pub_trajectory_ =
       this->create_publisher<dynus_interfaces::msg::Trajectory>("trajectory", critical_qos);
-  pub_mpc_path_ = this->create_publisher<nav_msgs::msg::Path>("mpc_waypoints", 10);
+  pub_mpc_path_ = this->create_publisher<path_msgs::msg::SpeedyPath>("mpc_waypoints", 10);
   pub_goal_reached_ = this->create_publisher<std_msgs::msg::Empty>("goal_reached", critical_qos);
   pub_command_to_exec_time_ =
       this->create_publisher<std_msgs::msg::Float64>("command_to_exec_time", 10);
@@ -1024,6 +1024,7 @@ void MIGHTY_NODE::stateCallback(const dynus_interfaces::msg::State::SharedPtr ms
     double roll, pitch, yaw;
     quaternion2Euler(msg->quat, roll, pitch, yaw);
     current_state.setYaw(yaw);
+    current_state.t = this->now().seconds();
     mighty_ptr_->updateState(current_state);
 
     // publish the state
@@ -1393,9 +1394,27 @@ void MIGHTY_NODE::convertDynTrajMsg2DynTraj(const dynus_interfaces::msg::DynTraj
   // Get id
   traj->id = msg.id;
 
-  // Get pwp
+  // Get pwp — quintic (6-coeff) takes priority, fall back to cubic (4-coeff) promoted to quintic
   if (msg.mode == "pwp") {
-    traj->pwp = mighty_utils::convertPwpMsg2Pwp(msg.quintic_pwp);
+    if (!msg.quintic_pwp.times.empty()) {
+      traj->pwp = mighty_utils::convertPwpMsg2Pwp(msg.quintic_pwp);
+    } else if (!msg.pwp.times.empty()) {
+      // Cubic PWP from obstacle tracker — promote to quintic by zero-padding high-order coeffs
+      auto cubic = mighty_utils::convertPwpMsg2Pwp(msg.pwp);
+      traj->pwp.times = cubic.times;
+      traj->pwp.coeff_x.resize(cubic.coeff_x.size());
+      traj->pwp.coeff_y.resize(cubic.coeff_y.size());
+      traj->pwp.coeff_z.resize(cubic.coeff_z.size());
+      for (size_t i = 0; i < cubic.coeff_x.size(); ++i) {
+        // Quintic: [a*u^5, b*u^4, c*u^3, d*u^2, e*u, f] — set a=0, b=0, then c,d,e,f from cubic
+        traj->pwp.coeff_x[i] << 0.0, 0.0, cubic.coeff_x[i](0), cubic.coeff_x[i](1),
+            cubic.coeff_x[i](2), cubic.coeff_x[i](3);
+        traj->pwp.coeff_y[i] << 0.0, 0.0, cubic.coeff_y[i](0), cubic.coeff_y[i](1),
+            cubic.coeff_y[i](2), cubic.coeff_y[i](3);
+        traj->pwp.coeff_z[i] << 0.0, 0.0, cubic.coeff_z[i](0), cubic.coeff_z[i](1),
+            cubic.coeff_z[i](2), cubic.coeff_z[i](3);
+      }
+    }
     traj->mode = dynTraj::Mode::Piecewise;
   }
 
@@ -2045,11 +2064,14 @@ void MIGHTY_NODE::publishMpcPath() {
 
   if (goal_setpoints_.size() < 2) return;
 
-  nav_msgs::msg::Path path_msg;
+  path_msgs::msg::SpeedyPath path_msg;
   path_msg.header.stamp = this->now();
   path_msg.header.frame_id = par_.map_frame_id;
 
   const double spacing = par_.mpc_path_spacing;
+
+  // Collect speeds alongside poses
+  std::vector<double> speeds;
 
   // Always include first point
   auto addPose = [&](const state& sp) {
@@ -2060,6 +2082,7 @@ void MIGHTY_NODE::publishMpcPath() {
     pose.pose.position.z = sp.pos.z();
     pose.pose.orientation.w = 1.0;
     path_msg.poses.push_back(pose);
+    speeds.push_back(sp.vel.head<2>().norm());
   };
 
   addPose(goal_setpoints_.front());
@@ -2098,6 +2121,9 @@ void MIGHTY_NODE::publishMpcPath() {
     path_msg.poses[i].pose.orientation.z = std::sin(yaw / 2.0);
     path_msg.poses[i].pose.orientation.w = std::cos(yaw / 2.0);
   }
+
+  // Assign per-waypoint speeds
+  path_msg.speeds = speeds;
 
   pub_mpc_path_->publish(path_msg);
 }
@@ -2606,17 +2632,19 @@ void MIGHTY_NODE::publishGround2DHeat() {
   const auto origin = map_util->getOrigin();
   const float res = static_cast<float>(map_util->getRes());
 
-  // Collect 2D terrain cost as colored point cloud
+  // Collect 2D heat (dynamic + static + terrain) as colored point cloud
   pcl::PointCloud<pcl::PointXYZI> cloud;
   for (int x = 0; x < dimX; ++x) {
     for (int y = 0; y < dimY; ++y) {
+      const float h = map_util->getHeat2D(x, y);
       const float tc = map_util->getTerrainCost(x, y);
-      if (tc > 0.001f) {
+      const float total = std::max(h, tc);
+      if (total > 0.001f) {
         pcl::PointXYZI pt;
         pt.x = origin(0) + (x + 0.5f) * res;
         pt.y = origin(1) + (y + 0.5f) * res;
-        pt.z = map_util->getTerrainHeight(x, y);
-        pt.intensity = tc;
+        pt.z = 0.05f;  // slightly above ground for visibility
+        pt.intensity = total;
         cloud.push_back(pt);
       }
     }

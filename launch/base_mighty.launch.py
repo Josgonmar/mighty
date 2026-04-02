@@ -34,9 +34,23 @@ def generate_launch_description():
     use_gazebo_gui_arg = DeclareLaunchArgument(
         'use_gazebo_gui', default_value='false', description='Flag to enable or disable gazebo gui'
     )
+    use_dyn_obs_arg = DeclareLaunchArgument(
+        'use_dyn_obs', default_value='false', description='Flag to enable or disable dynamic obstacles'
+    )
     use_ground_robot_arg = DeclareLaunchArgument(
         'use_ground_robot', default_value='false', description='Use ground robot (affects RViz config)'
     )
+
+    # Dynamic obstacle spawn region
+    num_dyn_obstacles_arg = DeclareLaunchArgument('num_dyn_obstacles', default_value='1', description='Number of dynamic obstacles')
+    dyn_x_min_arg = DeclareLaunchArgument('dyn_x_min', default_value='5.0', description='Dynamic obstacle spawn x min')
+    dyn_x_max_arg = DeclareLaunchArgument('dyn_x_max', default_value='105.0', description='Dynamic obstacle spawn x max')
+    dyn_y_min_arg = DeclareLaunchArgument('dyn_y_min', default_value='-5.0', description='Dynamic obstacle spawn y min')
+    dyn_y_max_arg = DeclareLaunchArgument('dyn_y_max', default_value='5.0', description='Dynamic obstacle spawn y max')
+    dyn_z_min_arg = DeclareLaunchArgument('dyn_z_min', default_value='1.0', description='Dynamic obstacle spawn z min')
+    dyn_z_max_arg = DeclareLaunchArgument('dyn_z_max', default_value='5.0', description='Dynamic obstacle spawn z max')
+    dyn_scale_z_min_arg = DeclareLaunchArgument('dyn_scale_z_min', default_value='2.0', description='Dynamic obstacle z scale min')
+    dyn_scale_z_max_arg = DeclareLaunchArgument('dyn_scale_z_max', default_value='4.0', description='Dynamic obstacle z scale max')
 
     # benchmark name
     benchmark_name_arg = DeclareLaunchArgument('benchmark_name', default_value='benchmark_name', description='Benchmark name')
@@ -64,6 +78,7 @@ def generate_launch_description():
             'path_push': 'forest3.world',
             'ACL_office': 'ACL_office.world',
             'ground_robot': 'ACL_office.world',
+            'ground_robot_forest': 'ground_robot_forest.world',
             'multiagent_testing': 'empty.world',
             'empty_wo_ground': 'empty_wo_ground.world',
             'empty': 'empty.world',
@@ -80,6 +95,7 @@ def generate_launch_description():
         world_path = PathJoinSubstitution([FindPackageShare('mighty'), 'worlds', world_file])
 
         use_rviz = convert_str_to_bool(LaunchConfiguration('use_rviz').perform(context))
+        use_dyn_obs = convert_str_to_bool(LaunchConfiguration('use_dyn_obs').perform(context))
         use_gazebo_gui = LaunchConfiguration('use_gazebo_gui').perform(context)
         use_ground_robot = convert_str_to_bool(LaunchConfiguration('use_ground_robot').perform(context))
 
@@ -117,9 +133,42 @@ def generate_launch_description():
             launch_arguments={'world': world_path, 'use_sim_time': 'false', 'gui': use_gazebo_gui, 'enable_gpu': 'true'}.items()
         )
 
+        # Dynamic obstacles (optional)
+        num_dyn_obstacles = LaunchConfiguration('num_dyn_obstacles').perform(context)
+        dyn_x_min = LaunchConfiguration('dyn_x_min').perform(context)
+        dyn_x_max = LaunchConfiguration('dyn_x_max').perform(context)
+        dyn_y_min = LaunchConfiguration('dyn_y_min').perform(context)
+        dyn_y_max = LaunchConfiguration('dyn_y_max').perform(context)
+        dyn_z_min = LaunchConfiguration('dyn_z_min').perform(context)
+        dyn_z_max = LaunchConfiguration('dyn_z_max').perform(context)
+        dyn_scale_z_min = LaunchConfiguration('dyn_scale_z_min').perform(context)
+        dyn_scale_z_max = LaunchConfiguration('dyn_scale_z_max').perform(context)
+        dynamic_obstacles_launch = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([FindPackageShare('mighty'), 'launch', 'dyn_obstacles.launch.py'])
+            ),
+            launch_arguments={
+                "num_obstacles": num_dyn_obstacles,
+                "x_min": dyn_x_min,
+                "x_max": dyn_x_max,
+                "y_min": dyn_y_min,
+                "y_max": dyn_y_max,
+                "z_min": dyn_z_min,
+                "z_max": dyn_z_max,
+                "scale_z_min": dyn_scale_z_min,
+                "scale_z_max": dyn_scale_z_max,
+                "publish_rate_hz": "50.0",
+                "seed": "0",
+                "launch_forest_node": "true",
+                "forest_start_delay": "2.0",
+                "spawn_interval": "1.0",
+            }.items()
+        )
+
         # Return launch description
         nodes_to_start = [gazebo_launch]
         nodes_to_start.append(rviz_node) if use_rviz else None
+        nodes_to_start.append(dynamic_obstacles_launch) if use_dyn_obs else None
 
         return nodes_to_start
 
@@ -127,7 +176,17 @@ def generate_launch_description():
         env_arg,
         use_rviz_arg,
         use_gazebo_gui_arg,
+        use_dyn_obs_arg,
         use_ground_robot_arg,
+        num_dyn_obstacles_arg,
+        dyn_x_min_arg,
+        dyn_x_max_arg,
+        dyn_y_min_arg,
+        dyn_y_max_arg,
+        dyn_z_min_arg,
+        dyn_z_max_arg,
+        dyn_scale_z_min_arg,
+        dyn_scale_z_max_arg,
         benchmark_name_arg,
         OpaqueFunction(function=launch_setup)
     ])

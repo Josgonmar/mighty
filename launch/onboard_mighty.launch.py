@@ -44,6 +44,7 @@ def generate_launch_description():
     odom_frame_id_arg = DeclareLaunchArgument('odom_frame_id', default_value='map')
     sim_env_arg = DeclareLaunchArgument('sim_env', default_value='', description='Simulation environment: gazebo or fake_sim (empty = use mighty.yaml default)')
     use_ground_robot_arg = DeclareLaunchArgument('use_ground_robot', default_value='false', description='Enable ground robot mode (spawns p3at, uses cmd_vel control)')
+    use_mpc_arg = DeclareLaunchArgument('use_mpc', default_value='', description='Override use_mpc (empty = use config default)')
     use_onboard_localization_arg = DeclareLaunchArgument('use_onboard_localization', default_value='false', description='Use onboard localization (DLIO) vs Vicon')
     depth_camera_name_arg = DeclareLaunchArgument('depth_camera_name', default_value='d435', description='Depth camera name for topic remapping')
     robot_type_arg = DeclareLaunchArgument('robot_type', default_value='quadrotor', description='Robot type: quadrotor, red_rover, star_robot')
@@ -118,7 +119,7 @@ def generate_launch_description():
         # Override with HW config if using hardware
         if use_hardware:
             if robot_type in [RED_ROVER, STAR_ROBOT]:
-                hw_config_filename = 'hw_mighty_rover.yaml'
+                hw_config_filename = 'hw_mighty_ground_robot.yaml'
             else:  # quadrotor
                 hw_config_filename = 'hw_mighty.yaml'
             hw_parameters_path = os.path.join(get_package_share_directory('mighty'), 'config', hw_config_filename)
@@ -126,8 +127,13 @@ def generate_launch_description():
                 hw_params = yaml.safe_load(f)['mighty_node']['ros__parameters']
             parameters.update(hw_params)
 
-        # Check if MPC is enabled (skip pure pursuit)
-        use_mpc = parameters.get('use_mpc', False)
+        # Check if MPC is enabled (skip pure pursuit) — launch arg overrides config
+        use_mpc_override = LaunchConfiguration('use_mpc').perform(context)
+        if use_mpc_override:
+            use_mpc = convert_str_to_bool(use_mpc_override)
+            parameters['use_mpc'] = use_mpc
+        else:
+            use_mpc = parameters.get('use_mpc', False)
 
         # Update parameters for benchmarking
         parameters['file_path'] = data_file
@@ -336,6 +342,7 @@ def generate_launch_description():
         odometry_topic_arg,
         sim_env_arg,
         use_ground_robot_arg,
+        use_mpc_arg,
         use_onboard_localization_arg,
         depth_camera_name_arg,
         robot_type_arg,

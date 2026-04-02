@@ -392,6 +392,19 @@ class MIGHTY {
   void updateMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& pclptr_map,
                  const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& pclptr_unk);
 
+  /** @brief Extract dynamic obstacle positions and predicted samples for heat map.
+   *  @param trajs Dynamic trajectories.
+   *  @param current_time Current timestamp.
+   *  @param agent_pos Current agent position.
+   *  @param obst_pos Output: current obstacle positions.
+   *  @param obst_bbox Output: obstacle bounding box half-extents.
+   *  @param traj_max_time Output: prediction horizon.
+   */
+  void extractDynamicHeatData(const std::vector<std::shared_ptr<dynTraj>>& trajs,
+                              double current_time, const Eigen::Vector3d& agent_pos,
+                              vec_Vecf<3>& obst_pos, vec_Vecf<3>& obst_bbox,
+                              double& traj_max_time);
+
   /** @brief Update only the occupancy map from a point cloud.
    *  @param pclptr_map Occupied point cloud.
    */

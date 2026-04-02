@@ -1511,6 +1511,68 @@ bool MIGHTY::checkReadyToReplan() {
 
 // ----------------------------------------------------------------------------
 
+void MIGHTY::extractDynamicHeatData(const std::vector<std::shared_ptr<dynTraj>>& trajs,
+                                    double current_time, const Eigen::Vector3d& agent_pos,
+                                    vec_Vecf<3>& obst_pos, vec_Vecf<3>& obst_bbox,
+                                    double& traj_max_time) {
+  if (!par_.use_heat_map || !par_.dynamic_heat_enabled || trajs.empty()) return;
+
+  // Filter obstacles within planning horizon
+  std::vector<std::shared_ptr<dynTraj>> selected_trajs;
+  selected_trajs.reserve(trajs.size());
+
+  for (const auto& traj : trajs) {
+    if (!traj) continue;
+    Eigen::Vector3d pos = traj->eval(current_time);
+    double dist = (pos - agent_pos).norm();
+    if (dist > par_.horizon) continue;
+
+    obst_pos.push_back(pos.cast<double>());
+    Eigen::Vector3d bbox_half = traj->bbox / 2.0;
+    obst_bbox.push_back(bbox_half.cast<double>());
+    selected_trajs.push_back(traj);
+  }
+
+  // Compute prediction horizon: use the max of config prediction_horizon and
+  // the actual trajectory duration (so agent trajectories are fully covered)
+  double Th = par_.prediction_horizon;
+  for (const auto& traj : selected_trajs) {
+    if (traj->mode == dynTraj::Mode::Piecewise && traj->pwp.times.size() >= 2) {
+      double remaining = traj->pwp.times.back() - std::max(traj->pwp.times.front(), current_time);
+      Th = std::max(Th, std::max(0.0, remaining));
+    }
+  }
+  traj_max_time = Th;
+
+  // Sample predicted positions along each trajectory at future times from NOW
+  if (par_.heat_num_samples > 0 && Th > 0.0 && !selected_trajs.empty()) {
+    const int M = par_.heat_num_samples;
+
+    std::vector<float> pred_times(M);
+    for (int j = 0; j < M; ++j) {
+      const double a = (M == 1) ? 0.0 : (double)j / (double)(M - 1);
+      pred_times[j] = static_cast<float>(a * Th);
+    }
+
+    std::vector<vec_Vecf<3>> pred_samples(selected_trajs.size());
+    for (size_t k = 0; k < selected_trajs.size(); ++k) {
+      pred_samples[k].resize(M);
+      for (int j = 0; j < M; ++j) {
+        const double t_abs = current_time + (double)pred_times[j];
+        Eigen::Vector3d pk = selected_trajs[k]->eval(t_abs);
+        if (!std::isfinite(pk.x()) || !std::isfinite(pk.y()) || !std::isfinite(pk.z())) {
+          pk = selected_trajs[k]->eval(current_time);
+        }
+        pred_samples[k][j] = pk;
+      }
+    }
+
+    hgp_manager_.setDynamicPredictedSamples(pred_samples, pred_times);
+  }
+}
+
+// ----------------------------------------------------------------------------
+
 void MIGHTY::updateMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& pclptr_map,
                        const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& pclptr_unk) {
   // 1) Atomically store the incoming clouds
@@ -1535,55 +1597,7 @@ void MIGHTY::updateMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& pclptr_ma
   vec_Vecf<3> obst_pos, obst_bbox;
   double traj_max_time = 0.0;
 
-  if (par_.use_heat_map && par_.dynamic_heat_enabled && !trajs.empty()) {
-    // Filter obstacles within map and planning horizon
-    std::vector<std::shared_ptr<dynTraj>> selected_trajs;
-    selected_trajs.reserve(trajs.size());
-
-    for (const auto& traj : trajs) {
-      if (!traj) continue;
-      Eigen::Vector3d pos = traj->eval(current_time);
-      double dist = (pos - local_state.pos).norm();
-      if (dist > par_.horizon) continue;
-
-      obst_pos.push_back(pos.cast<double>());
-      Eigen::Vector3d bbox_half = traj->bbox / 2.0;
-      obst_bbox.push_back(bbox_half.cast<double>());
-      selected_trajs.push_back(traj);
-    }
-
-    // Prediction horizon: how far into the future to sample trajectories
-    const double Th = par_.prediction_horizon;
-    traj_max_time = Th;
-
-    // Sample predicted positions along each trajectory at future times from NOW
-    if (par_.heat_num_samples > 0 && Th > 0.0 && !selected_trajs.empty()) {
-      const int M = par_.heat_num_samples;
-
-      // Build time samples: [0, Th] relative to current time
-      std::vector<float> pred_times(M);
-      for (int j = 0; j < M; ++j) {
-        const double a = (M == 1) ? 0.0 : (double)j / (double)(M - 1);
-        pred_times[j] = static_cast<float>(a * Th);
-      }
-
-      // Sample each trajectory at (current_time + pred_times[j])
-      std::vector<vec_Vecf<3>> pred_samples(selected_trajs.size());
-      for (size_t k = 0; k < selected_trajs.size(); ++k) {
-        pred_samples[k].resize(M);
-        for (int j = 0; j < M; ++j) {
-          const double t_abs = current_time + (double)pred_times[j];
-          Eigen::Vector3d pk = selected_trajs[k]->eval(t_abs);
-          if (!std::isfinite(pk.x()) || !std::isfinite(pk.y()) || !std::isfinite(pk.z())) {
-            pk = selected_trajs[k]->eval(current_time);
-          }
-          pred_samples[k][j] = pk;
-        }
-      }
-
-      hgp_manager_.setDynamicPredictedSamples(pred_samples, pred_times);
-    }
-  }
+  extractDynamicHeatData(trajs, current_time, local_state.pos, obst_pos, obst_bbox, traj_max_time);
 
   // 3) Call HGP updateMap with extracted obstacle data
   hgp_manager_.updateMap(wdx_, wdy_, wdz_, map_center_, pclptr_map_, pclptr_unk_, obst_pos,
@@ -1628,11 +1642,14 @@ void MIGHTY::updateOccupancyMap(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& 
   getG(local_G);
   computeMapSize(local_state.pos, local_G.pos);
 
-  // 2) Extract obstacle data from dynamic trajectories
+  // 2) Extract obstacle data from dynamic trajectories for HGP heat map
   auto trajs = getTrajs();
   double current_time = local_state.t;
   vec_Vecf<3> obst_pos, obst_bbox;
   double traj_max_time = 0.0;
+
+  extractDynamicHeatData(trajs, current_time, local_state.pos, obst_pos, obst_bbox, traj_max_time);
+
   // No unknown cloud for occupancy-only update
   pcl::PointCloud<pcl::PointXYZ>::Ptr empty_unk(new pcl::PointCloud<pcl::PointXYZ>());
 

@@ -413,6 +413,8 @@ class MapUtil {
       }
 
       const size_t K = obst_pos.size();
+      const size_t J_pred = dyn_pred_samples_.size();
+      const size_t T_pred = dyn_pred_times_.size();
       if (K > 0) {
         // Lightweight pow for small integer exponents.
         auto pow_fast = [](float x, int p) -> float {
@@ -1758,6 +1760,22 @@ class MapUtil {
             float w = std::min(static_heat_alpha_ * pw, static_heat_Hmax_);
             if (w > heat_2d_[idx]) heat_2d_[idx] = w;
           }
+        }
+      }
+    }
+
+    // Step 6: Project 3D dynamic heat into 2D (max over z columns)
+    if (dynamic_heat_enabled_ && !heat_.empty()) {
+      for (int x = 0; x < dimX; ++x) {
+        for (int y = 0; y < dimY; ++y) {
+          float max_h = 0.0f;
+          for (int z = 0; z < dimZ; ++z) {
+            const size_t idx_3d =
+                static_cast<size_t>(x) + dimX * (static_cast<size_t>(y) + dimY * z);
+            if (idx_3d < heat_.size()) max_h = std::max(max_h, heat_[idx_3d]);
+          }
+          const size_t idx_2d = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+          if (max_h > heat_2d_[idx_2d]) heat_2d_[idx_2d] = max_h;
         }
       }
     }

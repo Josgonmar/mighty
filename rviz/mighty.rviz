@@ -6,9 +6,11 @@ Panels:
       Expanded:
         - /Common1/TF1/Frames1
         - /Benchmarking1/Trajectories1/Namespaces1
+        - /NX011
         - /NX011/Planning1/NX01 Traj1/Topic1
         - /NX011/Mapping1/NX01 D435 PointCloud1/Topic1
         - /NX011/Mapping1/NX01 Lidar PointCloud1/Topic1
+        - /NX011/Ground 2D1
       Splitter Ratio: 0.5
     Tree Height: 647
   - Class: rviz_common/Selection
@@ -28,7 +30,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Simulation Global Map
+    SyncSource: NX01 ACL Map Occupied
 Visualization Manager:
   Class: ""
   Displays:
@@ -57,9 +59,55 @@ Visualization Manager:
           Frame Timeout: 15
           Frames:
             All Enabled: false
+            NX01/NX01_d435_bottom_screw_frame:
+              Value: true
+            NX01/NX01_d435_color_frame:
+              Value: true
+            NX01/NX01_d435_color_optical_frame:
+              Value: true
+            NX01/NX01_d435_depth_frame:
+              Value: true
+            NX01/NX01_d435_depth_optical_frame:
+              Value: true
+            NX01/NX01_d435_left_ir_frame:
+              Value: true
+            NX01/NX01_d435_left_ir_optical_frame:
+              Value: true
+            NX01/NX01_d435_link:
+              Value: true
+            NX01/NX01_d435_right_ir_frame:
+              Value: true
+            NX01/NX01_d435_right_ir_optical_frame:
+              Value: true
+            NX01/NX01_livox:
+              Value: true
+            NX01/back_sonar:
+              Value: true
             NX01/base_link:
               Value: true
+            NX01/front_sonar:
+              Value: true
+            NX01/p3at_back_left_axle:
+              Value: true
+            NX01/p3at_back_left_hub:
+              Value: true
+            NX01/p3at_back_right_axle:
+              Value: true
+            NX01/p3at_back_right_hub:
+              Value: true
+            NX01/p3at_front_left_axle:
+              Value: true
+            NX01/p3at_front_left_hub:
+              Value: true
+            NX01/p3at_front_right_axle:
+              Value: true
+            NX01/p3at_front_right_hub:
+              Value: true
+            NX01/top_plate:
+              Value: true
             map:
+              Value: true
+            obstacle_0:
               Value: true
           Marker Scale: 5
           Name: TF
@@ -69,6 +117,41 @@ Visualization Manager:
           Tree:
             map:
               NX01/base_link:
+                NX01/NX01_d435_bottom_screw_frame:
+                  NX01/NX01_d435_link:
+                    NX01/NX01_d435_depth_frame:
+                      NX01/NX01_d435_color_frame:
+                        NX01/NX01_d435_color_optical_frame:
+                          {}
+                      NX01/NX01_d435_depth_optical_frame:
+                        {}
+                      NX01/NX01_d435_left_ir_frame:
+                        NX01/NX01_d435_left_ir_optical_frame:
+                          {}
+                      NX01/NX01_d435_right_ir_frame:
+                        NX01/NX01_d435_right_ir_optical_frame:
+                          {}
+                NX01/NX01_livox:
+                  {}
+                NX01/back_sonar:
+                  {}
+                NX01/front_sonar:
+                  {}
+                NX01/p3at_back_left_axle:
+                  NX01/p3at_back_left_hub:
+                    {}
+                NX01/p3at_back_right_axle:
+                  NX01/p3at_back_right_hub:
+                    {}
+                NX01/p3at_front_left_axle:
+                  NX01/p3at_front_left_hub:
+                    {}
+                NX01/p3at_front_right_axle:
+                  NX01/p3at_front_right_hub:
+                    {}
+                NX01/top_plate:
+                  {}
+              obstacle_0:
                 {}
           Update Interval: 0
           Value: true
@@ -89,7 +172,7 @@ Visualization Manager:
           Enabled: true
           Name: Dynamic Obstacles GT
           Namespaces:
-            {}
+            dyn_obs_mesh: true
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -131,40 +214,6 @@ Visualization Manager:
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: true
-          Max Color: 255; 255; 255
-          Max Intensity: 0.7999998927116394
-          Min Color: 0; 0; 0
-          Min Intensity: 0.11471860855817795
-          Name: Dynamic Obstacle Heat Map
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.05000000074505806
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /NX01/heat_cloud
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
       Enabled: true
       Name: Common
     - Class: rviz_common/Group
@@ -628,9 +677,9 @@ Visualization Manager:
               Enabled: false
               Invert Rainbow: false
               Max Color: 255; 255; 255
-              Max Intensity: -999999
+              Max Intensity: 1
               Min Color: 0; 0; 0
-              Min Intensity: 999999
+              Min Intensity: 5.160481669008732e-05
               Name: NX01 Heat Cloud
               Position Transformer: XYZ
               Selectable: true
@@ -685,6 +734,40 @@ Visualization Manager:
               Use Fixed Frame: true
               Use rainbow: false
               Value: true
+            - Alpha: 1
+              Autocompute Intensity Bounds: true
+              Autocompute Value Bounds:
+                Max Value: 10
+                Min Value: -10
+                Value: true
+              Axis: Z
+              Channel Name: intensity
+              Class: rviz_default_plugins/PointCloud2
+              Color: 255; 255; 255
+              Color Transformer: Intensity
+              Decay Time: 0
+              Enabled: true
+              Invert Rainbow: false
+              Max Color: 255; 255; 255
+              Max Intensity: -999999
+              Min Color: 0; 0; 0
+              Min Intensity: 999999
+              Name: NX01 2D Ground Heat
+              Position Transformer: XYZ
+              Selectable: true
+              Size (Pixels): 3
+              Size (m): 0.10000000149011612
+              Style: Flat Squares
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                Filter size: 10
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /NX01/ground_2d_heat
+              Use Fixed Frame: true
+              Use rainbow: true
+              Value: true
           Enabled: true
           Name: Ground 2D
         - Class: rviz_common/Group
@@ -732,7 +815,7 @@ Visualization Manager:
               Enabled: true
               Name: NX01 tracked obstacles
               Namespaces:
-                {}
+                "": true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -744,7 +827,8 @@ Visualization Manager:
               Enabled: true
               Name: NX01 Cluster Bbox
               Namespaces:
-                {}
+                centroid: true
+                wireframe: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -828,25 +912,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 15.037771224975586
+      Distance: 18.541458129882812
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.5681899785995483
-        Y: -0.41723939776420593
-        Z: 6.702785491943359
+        X: 5.977306842803955
+        Y: -1.8418079614639282
+        Z: 6.1869049072265625
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.4047964811325073
+      Pitch: 1.3447965383529663
       Target Frame: map
       Value: Orbit (rviz_default_plugins)
-      Yaw: 4.717380523681641
+      Yaw: 4.727367877960205
     Saved: ~
 Window Geometry:
   Displays:

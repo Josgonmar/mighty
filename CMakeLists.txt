@@ -36,6 +36,7 @@ find_package(tf2_eigen REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(path_msgs REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}")
 
@@ -55,7 +56,7 @@ add_definitions(${PCL_DEFINITIONS})
 # add executables
 add_executable(mighty src/mighty/mighty_node.cpp src/mighty/mighty.cpp src/hgp/hgp_manager.cpp src/hgp/utils.cpp src/hgp/hgp_planner.cpp src/hgp/graph_search.cpp src/mighty/utils.cpp src/mighty/lbfgs_solver.cpp src/mighty/lbfgs_solver_utils.cpp)
 target_link_libraries(mighty ${PCL_LIBRARIES})
-ament_target_dependencies(mighty rclcpp example_interfaces dynus_interfaces visualization_msgs Eigen3 decomp_ros_msgs sensor_msgs std_msgs nav_msgs decomp_rviz_plugins decomp_test_node tf2_geometry_msgs tf2 tf2_ros tf2_eigen std_srvs pcl_ros)
+ament_target_dependencies(mighty rclcpp example_interfaces dynus_interfaces visualization_msgs Eigen3 decomp_ros_msgs sensor_msgs std_msgs nav_msgs decomp_rviz_plugins decomp_test_node tf2_geometry_msgs tf2 tf2_ros tf2_eigen std_srvs pcl_ros path_msgs)
 
 # Add the fake_sim executable
 add_executable(fake_sim src/mighty/fake_sim.cpp)
@@ -96,6 +97,18 @@ add_library(imu_plugin SHARED src/sim/gazebo_ros_imu_sensor.cpp)
 target_link_libraries(imu_plugin ${GAZEBO_LIBRARIES})
 ament_target_dependencies(imu_plugin sensor_msgs gazebo_ros)
 
+# For dynamic forest node (simulated dynamic obstacles)
+add_executable(dynamic_forest_node src/sim/dynamic_forest_node.cpp)
+ament_target_dependencies(dynamic_forest_node
+  rclcpp
+  geometry_msgs
+  gazebo_msgs
+  visualization_msgs
+  std_msgs
+  tf2_ros
+  dynus_interfaces
+)
+
 # install for launch and config files
 install(DIRECTORY
 launch
@@ -116,6 +129,7 @@ install(TARGETS
   convert_odom_to_state
   convert_vicon_to_state
   convert_velodyne_to_ros_time
+  dynamic_forest_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
