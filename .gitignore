@@ -3,3 +3,6 @@ log/
 
 # Claude Code
 CLAUDE.md
+
+# Python cache
+__pycache__/

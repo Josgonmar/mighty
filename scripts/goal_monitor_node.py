@@ -65,9 +65,9 @@ class GoalMonitorNode(Node):
         if self.use_hardware and use_ground_robot:
             if odom_type == 'mocap':
                 if goal_type == 1:
-                    self.goal_points = [[4.0, 4.0, z], [-4.0, -4.0, z]]
+                    self.goal_points = [[3.0, 3.0, z], [-3.5, -3.5, z]]
                 else:
-                    self.goal_points = [[-4.0, 4.0, z], [4.0, -4.0, z]]
+                    self.goal_points = [[-3.5, 3.0, z], [3.0, -3.5, z]]
                 self.get_logger().info(
                     f"HW ground robot mocap goals (type {goal_type}): "
                     f"{self.goal_points[0]} <-> {self.goal_points[1]}")
@@ -98,9 +98,7 @@ class GoalMonitorNode(Node):
             self.get_logger().error(f"Unknown namespace: {self.namespace}. No goal points defined.")
             self.goal_points = [[0.0, 0.0, 0.0]]
 
-        # Repeat the two-goal swap pattern
-        num_iterations = 9
-        self.goal_points = self.goal_points * num_iterations
+        # No need to repeat — we wrap around forever
 
         # Publishers and Subscribers
         self.state_sub = self.create_subscription(State, 'state', self.state_callback, 10)
@@ -136,10 +134,10 @@ class GoalMonitorNode(Node):
 
         self.get_logger().info(f"Distance to goal: {distance:.2f}")
 
-        # Check if the drone has reached the current goal and next goal is not out of bounds
-        if distance < self.goal_tolerance and self.current_goal_index < len(self.goal_points) - 1:
+        # Check if the drone has reached the current goal, then wrap around
+        if distance < self.goal_tolerance:
             self.get_logger().info(f"Goal {self.current_goal_index} reached!")
-            self.current_goal_index = self.current_goal_index + 1
+            self.current_goal_index = (self.current_goal_index + 1) % len(self.goal_points)
 
     def publish_term_goal(self):
         """Publishes the current goal as a PoseStamped message."""

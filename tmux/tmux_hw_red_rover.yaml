@@ -2,6 +2,7 @@ session_name: docker_hardware_ground_robot
 # Usage:
 #   ODOM_TYPE=dlio tmuxp load tmux_hw_red_rover.yaml     # (default) uses DLIO for localization
 #   ODOM_TYPE=mocap tmuxp load tmux_hw_red_rover.yaml    # uses mocap (world + mocap/twist topics)
+# NOTE: Prefer using scripts/run_hw_red_rover.py instead — it avoids tmux env inheritance issues.
 windows:
   - window_name: main
     layout: tiled
