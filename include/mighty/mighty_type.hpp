@@ -132,6 +132,7 @@ struct parameters {
   float dyn_heat_tube_radius_m{0.5f};
   int heat_num_samples{15};
   double prediction_horizon{3.0};
+  double prediction_mask_distance{2.0};  ///< [m] Drop predicted trajs if an agent traj is within this distance
   bool static_heat_enabled{false};
   float static_heat_alpha{2.0f};
   int static_heat_p{2};

@@ -57,7 +57,7 @@ mighty_node:
         g: 9.81                                         # [m/s^2] Gravitational acceleration
 
         # --- Trajectory Segments ---
-        num_N: 5                                        # [-] Number of trajectory pieces for local optimization
+        num_N: 8                                        # [-] Number of trajectory pieces for local optimization
 
         # --- Map Bounds ---
         x_min: -1000.0                                  # [m] Map x lower bound
@@ -120,10 +120,10 @@ mighty_node:
         traj_lifetime: 7.0                              # [s] Discard obstacle trajectories older than this
 
         # --- Dynamic Obstacle Heat (soft costs) ---
-        heat_alpha0: 0.3                                # [-] Weight for reachability blob (smaller for ground robot)
+        heat_alpha0: 0.1                                # [-] Weight for reachability blob (smaller for ground robot)
         heat_alpha1: 1.5                                # [-] Weight for trajectory tube
         heat_Hmax: 5.0                                  # [-] Maximum dynamic heat value
-        dyn_base_inflation_m: 1.0                       # [m] Base inflation for dynamic obstacle bboxes
+        dyn_base_inflation_m: 0.2                       # [m] Base inflation for dynamic obstacle bboxes
         dyn_heat_tube_radius_m: 1.0                     # [m] Heat corridor radius (tighter for ground robot)
 
         # --- Static Obstacle Heat (boundary halo) ---
@@ -134,6 +134,7 @@ mighty_node:
         # --- Obstacle Tracking ---
         cluster_tolerance: 1.0                          # [m] Clustering distance for obstacle detection
         prediction_horizon: 3.0                         # [s] How far ahead to predict obstacle motion
+        prediction_mask_distance: 1.0                    # [m] Drop predicted trajs if an agent traj is within this distance
         velocity_threshold: 0.8                         # [m/s] Speed threshold: below = static, above = dynamic
 
         # --- Map Window ---
@@ -158,7 +159,7 @@ mighty_node:
         use_free_goal: false                            # [-] Free the goal voxel if occupied
         free_goal_factor: 2.0                           # [-] Radius factor for goal freeing
         global_planner_heuristic_weight: 5.0             # [-] A* heuristic weight (higher = greedier)
-        heat_weight: 3.0                                # [-] Overall heat map weight in A* cost
+        heat_weight: 8.0                                # [-] Overall heat map weight in A* cost
         max_dist_vertexes: 1.0                          # [m] Max distance between path vertices
         w_unknown: 10.0                                  # [-] Cost weight for unknown cells
         w_align: 0.0                                    # [-] Cost weight for alignment with initial velocity

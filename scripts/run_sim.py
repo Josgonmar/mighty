@@ -142,7 +142,7 @@ def generate_multiagent_yaml(setup_bash: Path, agents: list, sim_env: str, ros_d
         panes.append({
             'shell_command': [
                 'sleep 20',
-                f'ros2 launch mighty goal_monitor.launch.py num_agents:={num_agents} radius:={radius} agent_prefix:={agent_prefix}'
+                f'ros2 launch mighty goal_monitor.launch.py num_agents:={num_agents} radius:={radius} agent_prefix:={agent_prefix} use_ground_robot:={str(use_ground_robot).lower()}'
             ]
         })
 
@@ -268,7 +268,7 @@ def generate_multiagent_ground_yaml(setup_bash: Path, agents: list, radius: floa
         'shell_command': [
             'sleep 25',
             f'ros2 launch mighty goal_monitor.launch.py num_agents:={num_agents} '
-            f'radius:={radius} agent_prefix:=NX goal_tolerance:=1.0'
+            f'radius:={radius} agent_prefix:=NX goal_tolerance:=1.0 use_ground_robot:=true'
         ]
     })
 

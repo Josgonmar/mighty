@@ -47,7 +47,7 @@ class GoalMonitorNode(Node):
         self.declare_parameter('use_hardware', False)
         self.use_hardware = self.get_parameter('use_hardware').value
         self.declare_parameter('use_ground_robot', False)
-        use_ground_robot = self.get_parameter('use_ground_robot').value
+        self.use_ground_robot = self.get_parameter('use_ground_robot').value
         self.declare_parameter('odom_type', 'dlio')  # "dlio" or "mocap"
         odom_type = self.get_parameter('odom_type').value
         self.declare_parameter('goal_type', 1)  # 1 or 2 (only for mocap mode)
@@ -59,10 +59,10 @@ class GoalMonitorNode(Node):
         self.distance_check_frequency = 1.0
         self.current_goal_index = 0
 
-        z = 0.2 if use_ground_robot else 1.0
+        z = 0.2 if self.use_ground_robot else 1.0
 
         # Hardware ground robot: fixed goal pairs based on odom_type
-        if self.use_hardware and use_ground_robot:
+        if self.use_hardware and self.use_ground_robot:
             if odom_type == 'mocap':
                 if goal_type == 1:
                     self.goal_points = [[3.5, 3.5, z], [-3.5, -3.5, z]]
@@ -72,7 +72,7 @@ class GoalMonitorNode(Node):
                     f"HW ground robot mocap goals (type {goal_type}): "
                     f"{self.goal_points[0]} <-> {self.goal_points[1]}")
             else:  # dlio
-                self.goal_points = [[0.0, 0.0, z], [11.0, 0.0, z]]
+                self.goal_points = [[0.0, 0.0, z], [10.0, 0.0, z]]
                 self.get_logger().info(
                     f"HW ground robot DLIO goals: "
                     f"{self.goal_points[0]} <-> {self.goal_points[1]}")
@@ -125,12 +125,18 @@ class GoalMonitorNode(Node):
         # Get the current goal point
         goal_x, goal_y, goal_z = self.goal_points[self.current_goal_index]
 
-        # Compute the Euclidean distance to the current goal
-        distance = math.sqrt(
-            (self.current_position.x - goal_x) ** 2 +
-            (self.current_position.y - goal_y) ** 2 +
-            (self.current_position.z - goal_z) ** 2
-        )
+        # Compute distance to goal (2D for ground robots, 3D for UAVs)
+        if self.use_ground_robot:
+            distance = math.sqrt(
+                (self.current_position.x - goal_x) ** 2 +
+                (self.current_position.y - goal_y) ** 2
+            )
+        else:
+            distance = math.sqrt(
+                (self.current_position.x - goal_x) ** 2 +
+                (self.current_position.y - goal_y) ** 2 +
+                (self.current_position.z - goal_z) ** 2
+            )
 
         self.get_logger().info(f"Distance to goal: {distance:.2f}")
 

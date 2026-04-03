@@ -356,6 +356,7 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("dyn_heat_tube_radius_m", 2.0);
   this->declare_parameter("heat_num_samples", 15);
   this->declare_parameter("prediction_horizon", 3.0);
+  this->declare_parameter("prediction_mask_distance", 2.0);
   this->declare_parameter("static_heat_enabled", false);
   this->declare_parameter("static_heat_alpha", 2.0);
   this->declare_parameter("static_heat_p", 2);
@@ -603,6 +604,7 @@ void MIGHTY_NODE::setParameters() {
   par_.dyn_heat_tube_radius_m = this->get_parameter("dyn_heat_tube_radius_m").as_double();
   par_.heat_num_samples = this->get_parameter("heat_num_samples").as_int();
   par_.prediction_horizon = this->get_parameter("prediction_horizon").as_double();
+  par_.prediction_mask_distance = this->get_parameter("prediction_mask_distance").as_double();
   par_.static_heat_enabled = this->get_parameter("static_heat_enabled").as_bool();
   par_.static_heat_alpha = this->get_parameter("static_heat_alpha").as_double();
   par_.static_heat_p = this->get_parameter("static_heat_p").as_int();
@@ -991,6 +993,16 @@ void MIGHTY_NODE::trajCallback(const dynus_interfaces::msg::DynTraj::SharedPtr m
 
   // Apply frame alignment transform if enabled
   if (par_.use_frame_alignment) {
+    // Drop trajectory if we haven't received frame alignment for this sender yet
+    {
+      std::lock_guard<std::mutex> lock(frame_align_mutex_);
+      if (!frame_align_received_.count(msg->id) || !frame_align_received_[msg->id]) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                             "Dropping traj from agent %d — no frame alignment received yet", msg->id);
+        return;
+      }
+    }
+
     // Publish BEFORE transform (red, slight z offset for debug)
     publishTrajMarker(traj, pub_traj_received_, 1.0, 0.2, 0.2, 0.1);
 

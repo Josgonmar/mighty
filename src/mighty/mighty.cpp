@@ -1194,12 +1194,21 @@ void MIGHTY::addTraj(std::shared_ptr<dynTraj> new_traj, double current_time) {
 
   if (new_traj->mode == dynTraj::Mode::Piecewise && new_traj->pwp.times.empty()) return;
 
-  // Evaluate once
   Eigen::Vector3d p = new_traj->eval(current_time);
-  // if (!checkPointWithinMap(p))
-  //   return;
-  // if ((p - state_.pos).norm() > par_.horizon)
-  //   return;
+
+  // If this is a predicted (non-agent) trajectory, mask it if an agent trajectory
+  // is nearby — avoids double-counting when ACL mapper tracks another agent
+  if (!new_traj->is_agent && par_.prediction_mask_distance > 0.0) {
+    std::lock_guard<std::mutex> lock(mtx_trajs_);
+    for (const auto& t : trajs_) {
+      if (t->is_agent) {
+        Eigen::Vector3d agent_pos = t->eval(current_time);
+        if ((p - agent_pos).norm() < par_.prediction_mask_distance) {
+          return;  // drop — an agent trajectory already covers this obstacle
+        }
+      }
+    }
+  }
 
   {
     std::lock_guard<std::mutex> lock(mtx_trajs_);
@@ -1208,7 +1217,7 @@ void MIGHTY::addTraj(std::shared_ptr<dynTraj> new_traj, double current_time) {
     });
 
     if (it != trajs_.end())
-      *it = new_traj;  // replace pointer
+      *it = new_traj;
     else
       trajs_.push_back(new_traj);
   }
