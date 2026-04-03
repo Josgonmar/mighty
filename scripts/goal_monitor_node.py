@@ -65,9 +65,9 @@ class GoalMonitorNode(Node):
         if self.use_hardware and use_ground_robot:
             if odom_type == 'mocap':
                 if goal_type == 1:
-                    self.goal_points = [[3.0, 3.0, z], [-3.5, -3.5, z]]
+                    self.goal_points = [[3.5, 3.5, z], [-3.5, -3.5, z]]
                 else:
-                    self.goal_points = [[-3.5, 3.0, z], [3.0, -3.5, z]]
+                    self.goal_points = [[-3.5, 3.5, z], [3.5, -3.5, z]]
                 self.get_logger().info(
                     f"HW ground robot mocap goals (type {goal_type}): "
                     f"{self.goal_points[0]} <-> {self.goal_points[1]}")
