@@ -72,7 +72,7 @@ class GoalMonitorNode(Node):
                     f"HW ground robot mocap goals (type {goal_type}): "
                     f"{self.goal_points[0]} <-> {self.goal_points[1]}")
             else:  # dlio
-                self.goal_points = [[0.0, 0.0, z], [10.0, 0.0, z]]
+                self.goal_points = [[0.0, 0.0, z], [8.0, 0.0, z]]
                 self.get_logger().info(
                     f"HW ground robot DLIO goals: "
                     f"{self.goal_points[0]} <-> {self.goal_points[1]}")

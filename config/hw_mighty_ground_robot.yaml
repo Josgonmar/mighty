@@ -121,7 +121,7 @@ mighty_node:
 
         # --- Dynamic Obstacle Heat (soft costs) ---
         heat_alpha0: 0.5                                # [-] Weight for reachability blob (smaller for ground robot)
-        heat_alpha1: 1.5                                # [-] Weight for trajectory tube
+        heat_alpha1: 5.0                                # [-] Weight for trajectory tube
         heat_Hmax: 5.0                                  # [-] Maximum dynamic heat value
         dyn_base_inflation_m: 1.5                       # [m] Base inflation for dynamic obstacle bboxes
         dyn_heat_tube_radius_m: 1.5                     # [m] Heat corridor radius (tighter for ground robot)
@@ -129,7 +129,7 @@ mighty_node:
         # --- Static Obstacle Heat (boundary halo) ---
         static_heat_alpha: 5.0                           # [-] Peak heat at obstacle boundary
         static_heat_Hmax: 8.0                           # [-] Maximum static heat value
-        static_heat_rmax_m: 1.0                         # [m] Maximum halo radius
+        static_heat_rmax_m: 1.5                         # [m] Maximum halo radius
 
         # --- Obstacle Tracking ---
         cluster_tolerance: 1.0                          # [m] Clustering distance for obstacle detection
@@ -159,7 +159,7 @@ mighty_node:
         use_free_goal: false                            # [-] Free the goal voxel if occupied
         free_goal_factor: 2.0                           # [-] Radius factor for goal freeing
         global_planner_heuristic_weight: 1.0             # [-] A* heuristic weight (higher = greedier)
-        heat_weight: 8.0                                # [-] Overall heat map weight in A* cost
+        heat_weight: 5.0                                # [-] Overall heat map weight in A* cost
         max_dist_vertexes: 1.0                          # [m] Max distance between path vertices
         w_unknown: 10.0                                  # [-] Cost weight for unknown cells
         w_align: 0.0                                    # [-] Cost weight for alignment with initial velocity
