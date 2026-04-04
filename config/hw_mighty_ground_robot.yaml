@@ -95,7 +95,7 @@ mighty_node:
 
         # --- Global Planner ---
         global_planner: "astar_heat"                    # ["sjps", "astar_heat"]
-        inflation_hgp: 0.3                              # [m] Static obstacle inflation for global A* planning
+        inflation_hgp: 0.1                              # [m] Static obstacle inflation for global A* planning
         hgp_timeout_duration_ms: 10000                  # [ms] Global planner timeout
         max_expand: 1000000                               # [-] Max A* node expansions
 
@@ -129,7 +129,7 @@ mighty_node:
         # --- Static Obstacle Heat (boundary halo) ---
         static_heat_alpha: 5.0                           # [-] Peak heat at obstacle boundary
         static_heat_Hmax: 8.0                           # [-] Maximum static heat value
-        static_heat_rmax_m: 1.5                         # [m] Maximum halo radius
+        static_heat_rmax_m: 1.0                         # [m] Maximum halo radius
 
         # --- Obstacle Tracking ---
         cluster_tolerance: 1.0                          # [m] Clustering distance for obstacle detection
