@@ -66,7 +66,7 @@ mighty_node:
         y_max: 1000.0                                   # [m] Map y upper bound
         z_min: -0.4                                     # [m] Min altitude (matches global mapper z_ground)
         z_max: 0.5                                      # [m] Max altitude (must include real obstacle heights from lidar)
-        mighty_map_res: 0.1                             # [m] Voxel map resolution (coarser for ground robot)
+        mighty_map_res: 0.3                             # [m] Voxel map resolution (coarser for ground robot)
 
         # --- Goal ---
         force_goal_z: true                              # [-] Force goal to a fixed height (RViz GUI goals have z=0)
@@ -129,7 +129,7 @@ mighty_node:
         # --- Static Obstacle Heat (boundary halo) ---
         static_heat_alpha: 5.0                           # [-] Peak heat at obstacle boundary
         static_heat_Hmax: 5.0                           # [-] Maximum static heat value
-        static_heat_rmax_m: 2.0                         # [m] Maximum halo radius
+        static_heat_rmax_m: 1.5                         # [m] Maximum halo radius
 
         # --- Obstacle Tracking ---
         cluster_tolerance: 1.0                          # [m] Clustering distance for obstacle detection
