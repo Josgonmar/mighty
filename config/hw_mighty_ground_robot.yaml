@@ -123,7 +123,7 @@ mighty_node:
         heat_alpha0: 0.5                                # [-] Weight for reachability blob (smaller for ground robot)
         heat_alpha1: 5.0                                # [-] Weight for trajectory tube
         heat_Hmax: 5.0                                  # [-] Maximum dynamic heat value
-        dyn_base_inflation_m: 1.5                       # [m] Base inflation for dynamic obstacle bboxes
+        dyn_base_inflation_m: 0.7                       # [m] Base inflation for dynamic obstacle bboxes
         dyn_heat_tube_radius_m: 1.5                     # [m] Heat corridor radius (tighter for ground robot)
 
         # --- Static Obstacle Heat (boundary halo) ---
