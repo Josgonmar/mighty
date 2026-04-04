@@ -33,6 +33,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from datetime import datetime
 import yaml
 from pathlib import Path
 
@@ -48,6 +49,7 @@ def generate_yaml(odom_type: str, rover_name: str, goal_type: int) -> str:
     """Generate tmuxp YAML for hardware red rover."""
 
     source_ws = f'source {SETUP_BASH}'
+    timestamp = datetime.now().strftime('%Y%m%d%H%M')
 
     # Mighty launch: mocap vs DLIO differ in use_onboard_localization and twist_topic
     if odom_type == 'mocap':
@@ -168,10 +170,15 @@ def generate_yaml(odom_type: str, rover_name: str, goal_type: int) -> str:
                 goal_monitor_cmd,
             ]
         },
-        # Extra pane for even 3x3 tiled layout
+        # Bag recorder
         {
             'shell_command': [
+                source_ws,
                 f'echo "odom_type={odom_type}  rover={rover_name}  goal_type={goal_type}"',
+                f'python3 {MIGHTY_WS / "src" / "mighty" / "scripts" / "hw_bag_record.py"}'
+                f' --bag_path /home/swarm/data/multi_mighty'
+                f' --agents {rover_name}'
+                f' --bag_name {rover_name}_{timestamp}',
             ]
         },
     ]
