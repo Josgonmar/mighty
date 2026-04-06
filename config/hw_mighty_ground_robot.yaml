@@ -293,7 +293,7 @@ mighty_node:
 
         # --- Trajectory Publishing ---
         trajectory_downsample_points: 500               # [-] Number of points to downsample trajectory to
-        use_mpc: true                                   # [-] Enable trajectory tracker (use_mpc flag triggers tracker launch)
+        use_trajectory_tracker: true                     # [-] Use FF+FB trajectory tracker instead of pure pursuit
         mpc_path_spacing: 0.2                           # [m] Spacing between waypoints in MPC path
 
         # --- Debug ---

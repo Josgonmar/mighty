@@ -44,7 +44,7 @@ def generate_launch_description():
     odom_frame_id_arg = DeclareLaunchArgument('odom_frame_id', default_value='map')
     sim_env_arg = DeclareLaunchArgument('sim_env', default_value='', description='Simulation environment: gazebo or fake_sim (empty = use mighty.yaml default)')
     use_ground_robot_arg = DeclareLaunchArgument('use_ground_robot', default_value='false', description='Enable ground robot mode (spawns p3at, uses cmd_vel control)')
-    use_mpc_arg = DeclareLaunchArgument('use_mpc', default_value='', description='Override use_mpc (empty = use config default)')
+    use_trajectory_tracker_arg = DeclareLaunchArgument('use_trajectory_tracker', default_value='', description='Override use_trajectory_tracker (empty = use config default)')
     use_onboard_localization_arg = DeclareLaunchArgument('use_onboard_localization', default_value='false', description='Use onboard localization (DLIO) vs Vicon')
     depth_camera_name_arg = DeclareLaunchArgument('depth_camera_name', default_value='d435', description='Depth camera name for topic remapping')
     robot_type_arg = DeclareLaunchArgument('robot_type', default_value='quadrotor', description='Robot type: quadrotor, red_rover, star_robot')
@@ -129,13 +129,13 @@ def generate_launch_description():
                 hw_params = yaml.safe_load(f)['mighty_node']['ros__parameters']
             parameters.update(hw_params)
 
-        # Check if MPC is enabled (skip pure pursuit) — launch arg overrides config
-        use_mpc_override = LaunchConfiguration('use_mpc').perform(context)
-        if use_mpc_override:
-            use_mpc = convert_str_to_bool(use_mpc_override)
-            parameters['use_mpc'] = use_mpc
+        # Check if trajectory tracker is enabled — launch arg overrides config
+        tracker_override = LaunchConfiguration('use_trajectory_tracker').perform(context)
+        if tracker_override:
+            use_trajectory_tracker = convert_str_to_bool(tracker_override)
+            parameters['use_trajectory_tracker'] = use_trajectory_tracker
         else:
-            use_mpc = parameters.get('use_mpc', False)
+            use_trajectory_tracker = parameters.get('use_trajectory_tracker', False)
 
         # Update parameters for benchmarking
         parameters['file_path'] = data_file
@@ -332,7 +332,7 @@ def generate_launch_description():
                     nodes_to_start.append(hw_odom_to_state_node)
                 elif robot_type in [STAR_ROBOT, RED_ROVER]:
                     nodes_to_start.extend([hw_odom_to_state_node, static_tf_node])
-                    if use_mpc:
+                    if use_trajectory_tracker:
                         nodes_to_start.append(trajectory_tracker_node)
                     else:
                         nodes_to_start.append(pure_pursuit_node)
@@ -345,7 +345,7 @@ def generate_launch_description():
             nodes_to_start.append(robot_state_publisher_node) if parameters['sim_env'] == 'gazebo' else None
             nodes_to_start.append(spawn_entity_node) if parameters['sim_env'] == 'gazebo' else None
             if use_ground_robot:
-                if use_mpc:
+                if use_trajectory_tracker:
                     nodes_to_start.append(trajectory_tracker_node)
                 else:
                     nodes_to_start.append(pure_pursuit_node)
@@ -373,7 +373,7 @@ def generate_launch_description():
         odometry_topic_arg,
         sim_env_arg,
         use_ground_robot_arg,
-        use_mpc_arg,
+        use_trajectory_tracker_arg,
         use_onboard_localization_arg,
         depth_camera_name_arg,
         robot_type_arg,

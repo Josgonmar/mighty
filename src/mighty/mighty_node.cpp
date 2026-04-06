@@ -279,7 +279,7 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("vehicle_type", "uav");
   this->declare_parameter("provide_goal_in_global_frame", false);
   this->declare_parameter("use_hardware", false);
-  this->declare_parameter("use_mpc", false);
+  this->declare_parameter("use_trajectory_tracker", false);
   this->declare_parameter("map_frame_id", "map");
   this->declare_parameter("use_frame_alignment", false);
   this->declare_parameter("num_agents", 10);
@@ -518,7 +518,7 @@ void MIGHTY_NODE::setParameters() {
   par_.vehicle_type = this->get_parameter("vehicle_type").as_string();
   par_.provide_goal_in_global_frame = this->get_parameter("provide_goal_in_global_frame").as_bool();
   par_.use_hardware = this->get_parameter("use_hardware").as_bool();
-  par_.use_mpc = this->get_parameter("use_mpc").as_bool();
+  par_.use_trajectory_tracker = this->get_parameter("use_trajectory_tracker").as_bool();
   par_.map_frame_id = this->get_parameter("map_frame_id").as_string();
   par_.use_frame_alignment = this->get_parameter("use_frame_alignment").as_bool();
   par_.num_agents = this->get_parameter("num_agents").as_int();
@@ -1142,12 +1142,7 @@ void MIGHTY_NODE::replanCallback() {
 
   // Publish trajectory for tracking (increments trajectory_id on replan)
   if (replanning_result) {
-    if (par_.use_mpc)
-      publishMpcPath();
-    else
-      publishTrajectory();
-    // Always publish full trajectory for ground robot trajectory tracker
-    if (par_.vehicle_type == "ground_robot") publishTrajectory();
+    publishTrajectory();
   }
 
   // Publish command-to-execution time (time from goal received to first trajectory)
