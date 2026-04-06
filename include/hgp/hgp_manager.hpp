@@ -354,9 +354,32 @@ class HGPManager {
   bool map_initialized_ = false;
   bool is_ground_robot_ = false;
 
+  // ESDF for ground robot A* cost
+  std::shared_ptr<const EsdfGrid2D> esdf_grid_;
+  double esdf_weight_astar_ = 0.0;
+  double esdf_d_safe_astar_ = 0.0;
+
+  // Binary 2D occupancy for ground robot A* planning
+  std::shared_ptr<const class OccGrid2D> occ_grid_2d_;
+
  public:
   /** @brief Check if 2D ground robot planning mode is active. */
   bool isGroundRobot() const { return is_ground_robot_; }
+
+  /** @brief Set binary 2D occupancy grid for ground robot A* planning. */
+  void setOccGrid2D(std::shared_ptr<const class OccGrid2D> grid) { occ_grid_2d_ = grid; }
+
+  /** @brief Set max distance between waypoints for 2D path resampling. */
+  void setMaxDistVertexes2D(double d) {
+    if (planner_ptr_) planner_ptr_->setMaxDistVertexes2D(d);
+  }
+
+  /** @brief Set ESDF grid for distance-based A* cost (ground robot only). */
+  void setEsdfGrid(std::shared_ptr<const EsdfGrid2D> grid, double weight, double d_safe) {
+    esdf_grid_ = grid;
+    esdf_weight_astar_ = weight;
+    esdf_d_safe_astar_ = d_safe;
+  }
 
   /** @brief Get terrain height at world coordinates (delegates to map_util).
    *  Thread-safe: uses planning map if available.

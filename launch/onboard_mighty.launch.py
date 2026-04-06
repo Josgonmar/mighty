@@ -240,6 +240,28 @@ def generate_launch_description():
             emulate_tty=True,
         )
 
+        # Feedforward + feedback trajectory tracker for ground robot (replaces MPC)
+        trajectory_tracker_node = Node(
+            package='mighty',
+            executable='trajectory_tracker',
+            name='trajectory_tracker',
+            namespace=namespace,
+            parameters=[{
+                'control_rate': 50.0,
+                'max_velocity': parameters.get('ground_robot_v_max', 1.0),
+                'max_angular_velocity': 1.5,
+                'stopping_radius': 0.3,
+                'Kp_along': 1.0,
+                'Kp_cross': 2.0,
+                'Kp_yaw': 2.0,
+                'w_smoothing': 0.3,
+                'use_hardware': use_hardware,
+                'map_frame_id': map_frame_id,
+            }],
+            output='screen',
+            emulate_tty=True,
+        )
+
         # Create a fake sim node
         fake_sim_node = Node(
                     package='mighty',
@@ -310,7 +332,9 @@ def generate_launch_description():
                     nodes_to_start.append(hw_odom_to_state_node)
                 elif robot_type in [STAR_ROBOT, RED_ROVER]:
                     nodes_to_start.extend([hw_odom_to_state_node, static_tf_node])
-                    if not use_mpc:
+                    if use_mpc:
+                        nodes_to_start.append(trajectory_tracker_node)
+                    else:
                         nodes_to_start.append(pure_pursuit_node)
             else:
                 nodes_to_start.append(pose_twist_to_state_node)  # Vicon
@@ -320,7 +344,11 @@ def generate_launch_description():
             nodes_to_start.append(fake_sim_node) if not use_hardware else None
             nodes_to_start.append(robot_state_publisher_node) if parameters['sim_env'] == 'gazebo' else None
             nodes_to_start.append(spawn_entity_node) if parameters['sim_env'] == 'gazebo' else None
-            nodes_to_start.append(pure_pursuit_node) if (use_ground_robot and not use_mpc) else None
+            if use_ground_robot:
+                if use_mpc:
+                    nodes_to_start.append(trajectory_tracker_node)
+                else:
+                    nodes_to_start.append(pure_pursuit_node)
             nodes_to_start.append(pcl_render_node) if parameters['sim_env'] == 'fake_sim' else None
 
         return nodes_to_start

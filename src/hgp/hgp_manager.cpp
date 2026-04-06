@@ -128,6 +128,11 @@ void HGPManager::setupHGPPlanner(const std::string& global_planner, bool global_
   // Enable 2D A* mode only when use_2d_planning is on
   planner_ptr_->set2DMode(is_ground_robot_ && par_.use_2d_planning);
 
+  // Pass ESDF grid for ground robot A* cost
+  if (is_ground_robot_ && esdf_grid_) {
+    planner_ptr_->setEsdfGrid(esdf_grid_, esdf_weight_astar_, esdf_d_safe_astar_);
+  }
+
   // Path smoothing configuration
   planner_ptr_->setDisableAllSmoothing(par_.disable_all_smoothing);
   planner_ptr_->setSkipPathSmoothing(par_.skip_path_smoothing);
@@ -283,8 +288,10 @@ bool HGPManager::solveHGP(const Vec3f& start_sent, const Vec3f& start_vel, const
     raw_path = planner_ptr_->getRawPath();
   }
 
-  // Resample path at uniform arc-length intervals
-  mighty_utils::resamplePathUniform(path, max_dist_vertexes_);
+  // Resample path at uniform arc-length intervals (skip for 2D ground robot — already done in planner)
+  if (!is_ground_robot_) {
+    mighty_utils::resamplePathUniform(path, max_dist_vertexes_);
+  }
 
   // For ground robots, trim the path at the first non-free waypoint (using 2D map)
   if (is_ground_robot_ && map_util_for_planning_->has2DMap() && path.size() > 1) {
@@ -1188,12 +1195,21 @@ void HGPManager::updateMap(double wdx, double wdy, double wdz, const Vec3f& cent
                      center_map, par_.z_min, par_.z_max, par_.inflation_hgp, obst_pos, obst_bbox,
                      traj_max_time);
 
-  // Build 2D ground robot map if enabled
+  // Build 2D ground robot map
   if (is_ground_robot_) {
-    map_util_->buildGroundMap2D(static_cast<float>(par_.obstacle_min_height),
-                                static_cast<float>(par_.terrain_cost_weight),
-                                par_.terrain_cost_mode, par_.use_column_any_occupied,
-                                static_cast<float>(par_.column_min_z));
+    if (occ_grid_2d_) {
+      // Occ2D mode: binary occupancy from mapper + BFS distance-based heat ramp. No inflation.
+      map_util_->buildMap2DFromOcc2D(*occ_grid_2d_, esdf_d_safe_astar_, par_.static_heat_Hmax);
+    } else if (esdf_grid_) {
+      // ESDF fallback
+      map_util_->buildMap2DFromEsdf(*esdf_grid_, esdf_d_safe_astar_, par_.static_heat_Hmax);
+    } else {
+      // Final fallback: 3D point cloud projection
+      map_util_->buildGroundMap2D(static_cast<float>(par_.obstacle_min_height),
+                                  static_cast<float>(par_.terrain_cost_weight),
+                                  par_.terrain_cost_mode, par_.use_column_any_occupied,
+                                  static_cast<float>(par_.column_min_z));
+    }
   }
   mtx_map_util_.unlock();
 

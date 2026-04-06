@@ -521,6 +521,12 @@ void GraphSearch::setStartAndGoal(const Vecf<3>& start, const Vecf<3>& goal) {
   goal_ = goal;
 }
 
+void GraphSearch::setEsdfGrid(std::shared_ptr<const EsdfGrid2D> grid, double weight, double d_safe) {
+  esdf_grid_ = grid;
+  esdf_weight_astar_ = weight;
+  esdf_d_safe_astar_ = d_safe;
+}
+
 void GraphSearch::setBounds(double max_values[3]) {
   v_max_ = max_values[0];
   v_max_3d_ << max_values[0], max_values[0], max_values[0];
@@ -562,17 +568,22 @@ void GraphSearch::getSucc(const StatePtr& curr, std::vector<int>& succ_ids,
     int new_y = curr->y + d[1];
     int new_z = curr->z + d[2];
 
-    // Check if occupied - skip unless soft-cost mode is enabled
-    if (isOccupied(new_x, new_y, new_z)) {
-      if (!map_util_ || !map_util_->useSoftCostObstacles()) {
-        continue;  // Hard obstacle, skip
+    // Occupancy check
+    if (map_util_ && map_util_->has2DMap() && zDim_ == 1 && esdf_grid_) {
+      // ESDF mode: only check the 2D ESDF-derived map (skip inflated 3D grid)
+      if (map_util_->get2DOccupancy(new_x, new_y) != 0) {
+        continue;
       }
-      // Soft-cost mode: allow traversal but add penalty below
-    }
-
-    // For ground robots: also check 2D occupancy map (catches walls visible only at higher z)
-    if (map_util_ && map_util_->has2DMap() && map_util_->get2DOccupancy(new_x, new_y) != 0) {
-      continue;  // Occupied in 2D projection
+    } else {
+      // Standard mode: check 3D grid + 2D projection
+      if (isOccupied(new_x, new_y, new_z)) {
+        if (!map_util_ || !map_util_->useSoftCostObstacles()) {
+          continue;
+        }
+      }
+      if (map_util_ && map_util_->has2DMap() && map_util_->get2DOccupancy(new_x, new_y) != 0) {
+        continue;
+      }
     }
 
     // Hard heat cutoff: treat cells with heat > cutoff_ratio * Hmax as impassable
@@ -621,6 +632,29 @@ void GraphSearch::getSucc(const StatePtr& curr, std::vector<int>& succ_ids,
         const float w_heat = map_util_->getHeatWeight();
         const float soft_cost = map_util_->getObstacleSoftCost();
         step_cost += (double)(w_heat * soft_cost);
+      }
+    }
+
+    // -------- ESDF distance cost (ground robot 2D only) --------
+    // Disabled: ESDF avoidance is now handled via heat_2d_ built from buildMap2DFromEsdf().
+    // Keeping this block would double-count obstacle proximity cost.
+    if (false && esdf_grid_ && zDim_ == 1 && esdf_weight_astar_ > 0.0) {
+      // Convert grid coords to world coords for ESDF query
+      double wx, wy;
+      if (map_util_) {
+        Vecf<3> world_pos = map_util_->intToFloat(Veci<3>(new_x, new_y, 0));
+        wx = world_pos(0);
+        wy = world_pos(1);
+      } else {
+        wx = new_x;
+        wy = new_y;
+      }
+      if (esdf_grid_->isInBounds(wx, wy)) {
+        double d = esdf_grid_->queryDistance(wx, wy);
+        if (d < esdf_d_safe_astar_) {
+          double pen = esdf_d_safe_astar_ - d;
+          step_cost += esdf_weight_astar_ * pen * pen;
+        }
       }
     }
 

@@ -375,6 +375,12 @@ class MIGHTY {
    */
   void setInitialPose(const geometry_msgs::msg::TransformStamped& init_pose);
 
+  /** @brief Set the 2D ESDF grid for ground robot obstacle cost. Thread-safe (immutable snapshot). */
+  void setEsdfGrid(std::shared_ptr<const class EsdfGrid2D> grid) { esdf_grid_ = grid; }
+
+  /** @brief Set the binary 2D occupancy grid for ground robot A* planning. */
+  void setOccGrid2D(std::shared_ptr<const class OccGrid2D> grid) { occ_grid_2d_ = grid; }
+
   /** @brief Apply the initial pose transform to a piecewise polynomial trajectory.
    *  @param pwp Trajectory to transform in place.
    */
@@ -433,6 +439,8 @@ class MIGHTY {
       safe_corridor_polytopes_whole_;  // Polytope (Linear) constraints for whole trajectory
   std::shared_ptr<lbfgs::SolverLBFGS>
       whole_traj_solver_ptr_;                    // L-BFGS solver pointer for the whole trajectory
+  std::shared_ptr<const class EsdfGrid2D> esdf_grid_;  // 2D ESDF grid (ground robot only)
+  std::shared_ptr<const class OccGrid2D> occ_grid_2d_;  // Binary 2D occupancy (ground robot only)
   std::vector<std::shared_ptr<dynTraj>> trajs_;  // Dynamic trajectory
   Eigen::Vector3d v_max_3d_;                     // Maximum velocity
   Eigen::Vector3d a_max_3d_;                     // Maximum acceleration

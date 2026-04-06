@@ -7,6 +7,8 @@
  * -------------------------------------------------------------------------- */
 
 #include <mighty/mighty_node.hpp>
+#include <mighty/esdf_grid_2d.hpp>
+#include <mighty/occ_grid_2d.hpp>
 
 using namespace std::chrono_literals;
 
@@ -237,6 +239,21 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node") {
         rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_sensor_data)),
         std::bind(&MIGHTY_NODE::occupancyMapCallback, this, std::placeholders::_1), options_map);
   }
+
+  // ESDF subscription (ground robot only)
+  if (par_.use_esdf_cost && par_.vehicle_type == "ground_robot") {
+    sub_esdf_2d_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
+        "esdf_2d_topic", 10,
+        std::bind(&MIGHTY_NODE::esdfCallback, this, std::placeholders::_1), options_map);
+    RCLCPP_INFO(this->get_logger(), "ESDF: Subscribed to esdf_2d_topic (d_safe=%.1f m, weight=%.0f)",
+                par_.esdf_d_safe, par_.esdf_weight);
+
+    // Also subscribe to binary 2D occupancy for A* planning
+    sub_occ_2d_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
+        "occ_2d_topic", 10,
+        std::bind(&MIGHTY_NODE::occ2DCallback, this, std::placeholders::_1), options_map);
+    RCLCPP_INFO(this->get_logger(), "Occ2D: Subscribed to occ_2d_topic for ground robot A* planning");
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -424,6 +441,7 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("mass", 1.0);
   this->declare_parameter("g", 9.81);
   this->declare_parameter("fopt_threshold", 0.1);
+  this->declare_parameter("spline_degree", 5);
 
   // L-BFGS parameters
   this->declare_parameter("f_dec_coeff", 1e-2);
@@ -474,6 +492,12 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("terrain_cost_weight", 1.0);
   this->declare_parameter("terrain_cost_mode", std::string("max"));
   this->declare_parameter("ground_slab_margin", 0.3);
+
+  // ESDF-based obstacle avoidance (ground robot only)
+  this->declare_parameter("use_esdf_cost", false);
+  this->declare_parameter("esdf_weight", 1e+3);
+  this->declare_parameter("esdf_d_safe", 1.0);
+  this->declare_parameter("esdf_truncation_distance", 10);
 
   this->declare_parameter("trajectory_downsample_points", 500);
   this->declare_parameter("mpc_path_spacing", 0.05);
@@ -674,6 +698,7 @@ void MIGHTY_NODE::setParameters() {
   par_.mass = this->get_parameter("mass").as_double();
   par_.g = this->get_parameter("g").as_double();
   par_.fopt_threshold = this->get_parameter("fopt_threshold").as_double();
+  par_.spline_degree = this->get_parameter("spline_degree").as_int();
 
   // L-BFGS parameters
   par_.f_dec_coeff = this->get_parameter("f_dec_coeff").as_double();
@@ -732,6 +757,11 @@ void MIGHTY_NODE::setParameters() {
   par_.terrain_cost_weight = this->get_parameter("terrain_cost_weight").as_double();
   par_.terrain_cost_mode = this->get_parameter("terrain_cost_mode").as_string();
   par_.ground_slab_margin = this->get_parameter("ground_slab_margin").as_double();
+
+  par_.use_esdf_cost = this->get_parameter("use_esdf_cost").as_bool();
+  par_.esdf_weight = this->get_parameter("esdf_weight").as_double();
+  par_.esdf_d_safe = this->get_parameter("esdf_d_safe").as_double();
+  par_.esdf_truncation_distance = this->get_parameter("esdf_truncation_distance").as_int();
 
   par_.trajectory_downsample_points = this->get_parameter("trajectory_downsample_points").as_int();
   par_.mpc_path_spacing = this->get_parameter("mpc_path_spacing").as_double();
@@ -1089,6 +1119,11 @@ void MIGHTY_NODE::replanCallback() {
   // Set computation times to zero
   setComputationTimesToZero();
 
+  // Pass current ESDF snapshot to planner (ground robot only)
+  if (par_.use_esdf_cost && esdf_grid_) {
+    mighty_ptr_->setEsdfGrid(esdf_grid_);
+  }
+
   // Replan
   auto [replanning_result, hgp_result] =
       mighty_ptr_->replan(replanning_computation_time_, current_time);
@@ -1105,12 +1140,14 @@ void MIGHTY_NODE::replanCallback() {
   // To share trajectory with other agents
   if (replanning_result) publishOwnTraj();
 
-  // Publish full trajectory for ground robot tracking (increments trajectory_id on replan)
+  // Publish trajectory for tracking (increments trajectory_id on replan)
   if (replanning_result) {
     if (par_.use_mpc)
       publishMpcPath();
     else
       publishTrajectory();
+    // Always publish full trajectory for ground robot trajectory tracker
+    if (par_.vehicle_type == "ground_robot") publishTrajectory();
   }
 
   // Publish command-to-execution time (time from goal received to first trajectory)
@@ -2503,6 +2540,15 @@ void MIGHTY_NODE::unknownMapCallback(const sensor_msgs::msg::PointCloud2::ConstP
   pcl::PointCloud<pcl::PointXYZ>::Ptr unk_pc(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::fromROSMsg(*unk_msg, *unk_pc);
   mighty_ptr_->updateUnknownCloud(unk_pc);
+}
+
+void MIGHTY_NODE::esdfCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+  esdf_grid_ = EsdfGrid2D::fromOccupancyGrid(*msg, par_.esdf_truncation_distance);
+}
+
+void MIGHTY_NODE::occ2DCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+  occ_grid_2d_ = OccGrid2D::fromOccupancyGrid(*msg);
+  mighty_ptr_->setOccGrid2D(occ_grid_2d_);
 }
 
 // ----------------------------------------------------------------------------

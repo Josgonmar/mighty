@@ -184,7 +184,7 @@ def generate_yaml(odom_type: str, rover_name: str, goal_type: int) -> str:
     ]
 
     yaml_content = {
-        'session_name': 'hw_red_rover',
+        'session_name': 'hw_mighty',
         'windows': [{
             'window_name': 'main',
             'layout': 'tiled',
@@ -249,7 +249,7 @@ def main():
         return
 
     # Kill any existing session with this name
-    subprocess.run(['tmux', 'kill-session', '-t', 'hw_red_rover'],
+    subprocess.run(['tmux', 'kill-session', '-t', 'hw_mighty'],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Write temp YAML and launch
@@ -262,7 +262,7 @@ def main():
         subprocess.run(['tmuxp', 'load', '-d', temp_path], check=True)
 
         # Attach to the session
-        subprocess.run(['tmux', 'attach-session', '-t', 'hw_red_rover'])
+        subprocess.run(['tmux', 'attach-session', '-t', 'hw_mighty'])
     except subprocess.CalledProcessError as e:
         print(f'[ERROR] Failed to launch: {e}', file=sys.stderr)
         sys.exit(1)

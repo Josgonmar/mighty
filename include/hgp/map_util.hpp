@@ -28,6 +28,8 @@
 #include "hgp/data_type.hpp"
 
 #include "timer.hpp"
+#include <mighty/esdf_grid_2d.hpp>
+#include <mighty/occ_grid_2d.hpp>
 
 namespace mighty {
 
@@ -1854,6 +1856,99 @@ class MapUtil {
   void get2DDimensions(int& dimX, int& dimY) const {
     dimX = dim_(0);
     dimY = dim_(1);
+  }
+
+  /** @brief Build 2D map entirely from ESDF grid. Trusts ESDF for both occupancy and heat.
+   *
+   *  - Occupied: ESDF distance = 0 (on obstacle in mapper's grid)
+   *  - Heat: linear ramp from h_max at d=0 → 0 at d=d_safe
+   *  - No point cloud processing or inflation involved.
+   *
+   *  @param esdf   The 2D ESDF grid from the mapper.
+   *  @param d_safe Distance at which heat reaches 0.
+   *  @param h_max  Maximum heat value (at obstacle surface).
+   */
+  void buildMap2DFromEsdf(const EsdfGrid2D& esdf, double d_safe, double h_max) {
+    const int dimX = dim_(0);
+    const int dimY = dim_(1);
+    const size_t n2d = static_cast<size_t>(dimX) * dimY;
+
+    map_2d_.assign(n2d, val_free_);
+    heat_2d_.assign(n2d, 0.0f);
+
+    for (int y = 0; y < dimY; ++y) {
+      for (int x = 0; x < dimX; ++x) {
+        const double wx = origin_d_(0) + (x + 0.5) * res_;
+        const double wy = origin_d_(1) + (y + 0.5) * res_;
+        const size_t idx = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+
+        if (esdf.isInBounds(wx, wy)) {
+          const double d = esdf.queryDistance(wx, wy);
+          if (d <= 0.0) {
+            map_2d_[idx] = val_occ_;
+            heat_2d_[idx] = static_cast<float>(h_max);
+          } else if (d < d_safe) {
+            heat_2d_[idx] = static_cast<float>(h_max * (1.0 - d / d_safe));
+          }
+        } else {
+          // Outside ESDF bounds: unknown/occupied
+          map_2d_[idx] = val_occ_;
+        }
+      }
+    }
+    has_2d_map_ = true;
+  }
+
+  /** @brief Build 2D map from binary occupancy grid with BFS distance-based heat.
+   *
+   *  Occupancy comes directly from the mapper's occ_2d_topic (binary 0/100).
+   *  Heat is computed via BFS distance transform: h_max at obstacle → 0 at d_safe.
+   *
+   *  @param occ    Binary 2D occupancy grid from mapper.
+   *  @param d_safe Distance at which heat reaches 0 [m].
+   *  @param h_max  Maximum heat value at occupied cells.
+   */
+  void buildMap2DFromOcc2D(const OccGrid2D& occ, double d_safe, double h_max) {
+    const int dimX = dim_(0);
+    const int dimY = dim_(1);
+    const size_t n2d = static_cast<size_t>(dimX) * dimY;
+
+    map_2d_.assign(n2d, val_free_);
+    heat_2d_.assign(n2d, 0.0f);
+
+    // Compute distance field from the binary occupancy grid (truncated at d_safe)
+    std::vector<float> dist = occ.computeDistanceField(d_safe);
+
+    for (int y = 0; y < dimY; ++y) {
+      for (int x = 0; x < dimX; ++x) {
+        // Convert MIGHTY grid cell to world coordinates
+        const double wx = origin_d_(0) + (x + 0.5) * res_;
+        const double wy = origin_d_(1) + (y + 0.5) * res_;
+        const size_t idx = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
+
+        // Map to occ grid cell
+        int ox = static_cast<int>(std::floor((wx - occ.originX()) * occ.invResolution()));
+        int oy = static_cast<int>(std::floor((wy - occ.originY()) * occ.invResolution()));
+
+        if (ox < 0 || ox >= occ.width() || oy < 0 || oy >= occ.height()) {
+          map_2d_[idx] = val_occ_;  // outside occ grid → blocked
+          continue;
+        }
+
+        size_t oidx = static_cast<size_t>(oy) * occ.width() + ox;
+
+        if (occ.occupiedData()[oidx]) {
+          map_2d_[idx] = val_occ_;
+          heat_2d_[idx] = static_cast<float>(h_max);
+        } else {
+          float d = dist[oidx];
+          if (d < static_cast<float>(d_safe)) {
+            heat_2d_[idx] = static_cast<float>(h_max * (1.0 - d / d_safe));
+          }
+        }
+      }
+    }
+    has_2d_map_ = true;
   }
 
  protected:

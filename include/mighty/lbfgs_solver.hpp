@@ -26,6 +26,8 @@
 
 #include <mighty/mighty_type.hpp>
 
+class EsdfGrid2D;  // forward declaration (defined in esdf_grid_2d.hpp)
+
 namespace lbfgs {
 
 using Vec3 = Eigen::Vector3d;
@@ -75,6 +77,10 @@ struct planner_params_t {
   double mass = 1.0;              // mass in kg
   double g = 9.81;                // gravity in m/s^2
   bool is_2d_mode = false;        // 2D ground robot planning mode
+  int spline_degree = 5;          // Hermite spline degree: 3 (cubic) or 5 (quintic)
+  bool use_esdf_cost = false;     // ESDF distance cost (ground robot)
+  double esdf_weight = 0.0;       // ESDF cost weight
+  double esdf_d_safe = 1.0;       // [m] safety distance threshold
 };
 
 /** @brief L-BFGS-based local trajectory optimizer for Hermite quintic splines.
@@ -220,7 +226,7 @@ class SolverLBFGS {
    * @param T    (output) Segment durations, size M_
    */
   void reconstruct(const VecXd& z, std::vector<Vec3>& P, std::vector<Vec3>& V, std::vector<Vec3>& A,
-                   std::vector<std::array<Vec3, 6>>& CP, std::vector<double>& T) const;
+                   std::vector<std::vector<Vec3>>& CP, std::vector<double>& T) const;
 
   // -----------------------------------------------------------------------------
 
@@ -252,6 +258,10 @@ class SolverLBFGS {
    *  @param cons Linear constraints per segment (half-space representation).
    */
   void setStaticConstraints(const std::vector<LinearConstraint3D>& cons);
+
+  /** @brief Set the 2D ESDF grid for distance-based obstacle cost (ground robot).
+   *  @param grid Shared immutable snapshot of the ESDF grid. Thread-safe. */
+  void setEsdfGrid(std::shared_ptr<const ::EsdfGrid2D> grid) { esdf_grid_ = grid; }
 
   /** @brief Set the static constraints used for safe path computation.
    *  @param cons Linear constraints per segment for the safe path corridor.
@@ -308,7 +318,7 @@ class SolverLBFGS {
    *  @param T Segment duration.
    *  @return Array of 6 control points.
    */
-  static std::array<Vec3, 6> computeQuinticCP(const Vec3& P0, const Vec3& V0, const Vec3& A0,
+  static std::vector<Vec3> computeQuinticCP(const Vec3& P0, const Vec3& V0, const Vec3& A0,
                                               const Vec3& P1, const Vec3& V1, const Vec3& A1,
                                               double T);
 
@@ -535,7 +545,7 @@ class SolverLBFGS {
    * @param grad  (output) gradient ∇_z J_dyn, same size as z
    */
   void dJ_dyn_dz(const VecXd& z, const std::vector<Vec3>& P, const std::vector<Vec3>& V,
-                 const std::vector<Vec3>& A, const std::vector<std::array<Vec3, 6>>& CP,
+                 const std::vector<Vec3>& A, const std::vector<std::vector<Vec3>>& CP,
                  const std::vector<double>& T, VecXd& grad) const;
 
   // -----------------------------------------------------------------------------
@@ -551,7 +561,7 @@ class SolverLBFGS {
    * @param grad  (output) gradient ∇_z J_stat, same size as z
    */
   void dJ_stat_dz(const VecXd& z, const std::vector<Vec3>& P, const std::vector<Vec3>& V,
-                  const std::vector<Vec3>& A, const std::vector<std::array<Vec3, 6>>& CP,
+                  const std::vector<Vec3>& A, const std::vector<std::vector<Vec3>>& CP,
                   const std::vector<double>& T, VecXd& grad) const;
 
   // -----------------------------------------------------------------------------
@@ -562,14 +572,14 @@ class SolverLBFGS {
    * w.r.t. z = [free CPs; slack times].
    */
   void dJ_jerk_dz(const VecXd& z, const std::vector<Vec3>& P, const std::vector<Vec3>& V,
-                  const std::vector<Vec3>& A, const std::vector<std::array<Vec3, 6>>& CP,
+                  const std::vector<Vec3>& A, const std::vector<std::vector<Vec3>>& CP,
                   const std::vector<double>& T, VecXd& grad) const;
 
   // -----------------------------------------------------------------------------
 
   void dJ_limits_and_static_dz(const VecXd& z, const std::vector<Vec3>& P,
                                const std::vector<Vec3>& V, const std::vector<Vec3>& A,
-                               const std::vector<std::array<Vec3, 6>>& CP,
+                               const std::vector<std::vector<Vec3>>& CP,
                                const std::vector<double>& T, VecXd& grad) const;
 
   // -----------------------------------------------------------------------------
@@ -659,6 +669,22 @@ class SolverLBFGS {
   bool verbose_{false};     // Verbosity flag
   bool is_2d_mode_{false};  // 2D ground robot planning mode
 
+  // Spline degree and derived constants
+  int degree_{5};              // 3 or 5
+  int num_cp_{6};              // degree + 1: control points per segment
+  int num_derivs_{2};          // 1 for cubic (P,V), 2 for quintic (P,V,A)
+  int dof_per_knot_{9};        // 3*(1+num_derivs): 6 or 9
+  double vel_scale_{5.0};      // degree
+  double acc_scale_{20.0};     // degree*(degree-1)
+  double jrk_scale_{60.0};     // degree*(degree-1)*(degree-2)
+  double jrk_cost_coeff_{3600.0}; // closed-form jerk integral coefficient
+
+  // ESDF cost (ground robot only)
+  bool use_esdf_cost_{false};
+  double esdf_weight_{0.0};
+  double esdf_d_safe_{1.0};
+  std::shared_ptr<const ::EsdfGrid2D> esdf_grid_;
+
   // Ego-agent boundary conditions
   Vec3 x0_;
   Vec3 v0_;
@@ -738,7 +764,7 @@ class SolverLBFGS {
   // ROS parameters
   std::vector<state> goal_setpoints_;  // vector of goal setpoints
   double dc_;                          // small value
-  std::vector<std::array<Vec3, 6>> CP_opt_;
+  std::vector<std::vector<Vec3>> CP_opt_;
   std::vector<double> T_opt_;
   std::vector<Vec3> P_opt_, V_opt_, A_opt_;
   double t0_{0.0};  // start time of the trajectory

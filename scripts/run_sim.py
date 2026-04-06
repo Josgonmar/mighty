@@ -243,7 +243,7 @@ def generate_multiagent_ground_yaml(setup_bash: Path, agents: list, radius: floa
             ]
         })
 
-        # Mighty planner with MPC enabled
+        # Mighty planner with trajectory tracker (launched inside onboard_mighty when use_mpc:=true)
         panes.append({
             'shell_command': [
                 'sleep 12',
@@ -251,14 +251,6 @@ def generate_multiagent_ground_yaml(setup_bash: Path, agents: list, radius: floa
                 f"x:={agent['x']} y:={agent['y']} z:={agent['z']} yaw:={agent['yaw']} "
                 f"sim_env:=gazebo use_ground_robot:=true use_mpc:=true "
                 f"num_agents:={len(agents)}"
-            ]
-        })
-
-        # MPC controller (namespaced — topics auto-resolve under /{ns}/)
-        panes.append({
-            'shell_command': [
-                'sleep 15',
-                f'ros2 launch mpc mpc.launch.py namespace:={ns} params_file:={mpc_config}'
             ]
         })
 

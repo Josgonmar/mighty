@@ -21,6 +21,7 @@
 
 #include <hgp/data_type.hpp>
 #include <hgp/map_util.hpp>  // mighty::MapUtil
+#include <mighty/esdf_grid_2d.hpp>
 #include <mighty/mighty_type.hpp>
 #include <mighty/utils.hpp>
 
@@ -225,6 +226,13 @@ class GraphSearch {
    */
   void setStartAndGoal(const Vecf<3>& start, const Vecf<3>& goal);
 
+  /** @brief Set ESDF grid for distance-based A* cost (ground robot only).
+   *  @param grid ESDF grid pointer (may be nullptr to disable).
+   *  @param weight Cost weight for ESDF penalty.
+   *  @param d_safe Safety distance threshold [m].
+   */
+  void setEsdfGrid(std::shared_ptr<const EsdfGrid2D> grid, double weight, double d_safe);
+
   /** @brief Set maximum dynamic constraints (velocity, acceleration, jerk).
    *  @param max_values Array of three values: [v_max, a_max, j_max].
    */
@@ -327,6 +335,11 @@ class GraphSearch {
 
   // Map util
   std::shared_ptr<mighty::VoxelMapUtil> map_util_;
+
+  // ESDF for ground robot A* cost (optional)
+  std::shared_ptr<const EsdfGrid2D> esdf_grid_;
+  double esdf_weight_astar_ = 0.0;
+  double esdf_d_safe_astar_ = 0.0;
 
   // Set start and goal
   Vecf<3> start_;

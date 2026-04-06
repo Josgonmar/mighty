@@ -109,6 +109,8 @@ class MIGHTY_NODE : public rclcpp::Node {
                    const sensor_msgs::msg::PointCloud2::ConstPtr& pcl2ptr_unk_ros);
   void occupancyMapCallback(const sensor_msgs::msg::PointCloud2::ConstPtr& map_msg);
   void unknownMapCallback(const sensor_msgs::msg::PointCloud2::ConstPtr& unk_msg);
+  void esdfCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
+  void occ2DCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
   void goalReachedCheckCallback();
   void convertDynTrajMsg2DynTraj(const dynus_interfaces::msg::DynTraj& msg,
                                  std::shared_ptr<dynTraj>& traj, double current_time);
@@ -240,6 +242,14 @@ class MIGHTY_NODE : public rclcpp::Node {
   // Independent map subscribers (fallback when sync fails, e.g. hardware)
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_occupancy_grid_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_unknown_grid_;
+
+  // ESDF subscription (ground robot only)
+  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_esdf_2d_;
+  std::shared_ptr<const class EsdfGrid2D> esdf_grid_;
+
+  // Binary 2D occupancy subscription (ground robot only)
+  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_occ_2d_;
+  std::shared_ptr<const class OccGrid2D> occ_grid_2d_;
 
   // Visualization
   visualization_msgs::msg::MarkerArray hgp_path_marker_;

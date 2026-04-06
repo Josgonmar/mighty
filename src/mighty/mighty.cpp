@@ -50,6 +50,10 @@ MIGHTY::MIGHTY(parameters par) : par_(par) {
   planner_params_.dc = par_.dc;  // discretization constant
   planner_params_.init_turn_bf = par_.init_turn_bf;
   planner_params_.is_2d_mode = par_.use_2d_planning && (par_.vehicle_type == "ground_robot");
+  planner_params_.use_esdf_cost = par_.use_esdf_cost && (par_.vehicle_type == "ground_robot");
+  planner_params_.esdf_weight = par_.esdf_weight;
+  planner_params_.esdf_d_safe = par_.esdf_d_safe;
+  planner_params_.spline_degree = par_.spline_degree;
 
   // Set up the L-BFGS parameters
   lbfgs_params_.mem_size = 256;
@@ -568,8 +572,7 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3>& global_path, double current_time,
     state current_state;
     getState(current_state);
 
-    local_A = current_state;
-    local_A.vel = Eigen::Vector3d(0.0, 0.0, 0.0);  // Zero initial velocity
+    local_A = current_state;  // Use current velocity as initial condition
     A_time = current_time;
   } else {
     // UAV: find A and A_time from trajectory
@@ -588,11 +591,22 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3>& global_path, double current_time,
 
   // Set up the HGP planner (since updateVmax() needs to be called after setupHGPPlanner, we use
   // v_max_ from the last replan)
+  // Pass ESDF and occ grids to HGP manager for ground robot A* planning
+  if (par_.use_esdf_cost && par_.vehicle_type == "ground_robot") {
+    if (occ_grid_2d_) hgp_manager_.setOccGrid2D(occ_grid_2d_);
+    if (esdf_grid_) hgp_manager_.setEsdfGrid(esdf_grid_, par_.esdf_weight, par_.esdf_d_safe);
+  }
+
   MyTimer timer_setup(true);
   hgp_manager_.setupHGPPlanner(
       par_.global_planner, par_.global_planner_verbose, map_res_, v_max_, par_.a_max, par_.j_max,
       par_.hgp_timeout_duration_ms, par_.max_num_expansion, par_.w_unknown, par_.w_align,
       par_.decay_len_cells, par_.w_side, par_.los_cells, par_.min_len, par_.min_turn);
+
+  // For ground robot 2D mode: set max distance between path waypoints
+  if (par_.use_2d_planning && par_.vehicle_type == "ground_robot") {
+    hgp_manager_.setMaxDistVertexes2D(par_.max_dist_vertexes);
+  }
 
   // Free start and goal if necessary
   if (par_.use_free_start) hgp_manager_.freeStart(local_A.pos, par_.free_start_factor);
@@ -800,6 +814,9 @@ bool MIGHTY::generateLocalTrajectory(const state& local_A, double A_time, vec_Ve
     local_E.pos[2] = par_.default_goal_z;
   }
 
+  // Pass ESDF grid to solver (ground robot only, thread-safe immutable snapshot)
+  if (esdf_grid_) whole_traj_solver_ptr->setEsdfGrid(esdf_grid_);
+
   whole_traj_solver_ptr->prepareSolverForReplan(
       A_time, global_path, safe_corridor_polytopes_whole_, local_trajs, local_A, local_E,
       initial_guess_computation_time, par_.use_multiple_initial_guesses);
@@ -867,6 +884,7 @@ bool MIGHTY::generateLocalTrajectory(const state& local_A, double A_time, vec_Ve
         // make a fresh solver for thread-safety
         std::shared_ptr<lbfgs::SolverLBFGS> solver_ptr = std::make_shared<lbfgs::SolverLBFGS>();
         solver_ptr->initializeSolver(planner_params_);
+        if (esdf_grid_) solver_ptr->setEsdfGrid(esdf_grid_);
         double initial_guess_computation_time = 0.0;
         solver_ptr->prepareSolverForReplan(
             A_time, global_path, safe_corridor_polytopes_whole_, local_trajs, local_A, local_E,

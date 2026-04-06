@@ -67,6 +67,10 @@ add_executable(pure_pursuit src/mighty/pure_pursuit.cpp)
 target_link_libraries(pure_pursuit)
 ament_target_dependencies(pure_pursuit rclcpp dynus_interfaces geometry_msgs visualization_msgs)
 
+add_executable(trajectory_tracker src/mighty/trajectory_tracker.cpp)
+target_link_libraries(trajectory_tracker)
+ament_target_dependencies(trajectory_tracker rclcpp dynus_interfaces geometry_msgs visualization_msgs)
+
 # Add odom to state converter
 add_executable(convert_odom_to_state src/mighty/convert_odom_to_state.cpp)
 target_link_libraries(convert_odom_to_state)
@@ -113,7 +117,6 @@ install(DIRECTORY
 launch
 config
 rviz
-tmux
 worlds
 urdf
 meshes
@@ -125,6 +128,7 @@ install(TARGETS
   mighty
   fake_sim
   pure_pursuit
+  trajectory_tracker
   convert_odom_to_state
   convert_vicon_to_state
   convert_velodyne_to_ros_time

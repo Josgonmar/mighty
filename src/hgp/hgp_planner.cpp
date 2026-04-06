@@ -412,6 +412,11 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   double max_values[3] = {v_max_, a_max_, j_max_};
   graph_search_->setBounds(max_values);
 
+  // Pass ESDF grid for ground robot A* cost
+  if (esdf_grid_ && is_2d_mode_) {
+    graph_search_->setEsdfGrid(esdf_grid_, esdf_weight_astar_, esdf_d_safe_astar_);
+  }
+
   // In 2D mode, force start/goal z to 0
   const int sz = is_2d_mode_ ? 0 : start_int(2);
   const int gz = is_2d_mode_ ? 0 : goal_int(2);
@@ -458,11 +463,26 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
     // Heat-aware Laplacian smoothing (moves waypoints, doesn't remove them)
     path_ = smoothPathHeatAware(raw_path_, smooth_iterations_, smooth_alpha_);
   } else if (is_2d_mode_) {
-    // In 2D mode, skip 3D LoS shortcutting (it uses the 3D map which has ground points).
-    // Just do basic path cleanup.
-    auto tmp = raw_path_;
-    cleanUpPath(tmp);
-    path_ = tmp;
+    // 2D mode: sample points from raw A* path such that consecutive waypoints
+    // never exceed max_dist_vertexes_2d_. No smoothing or LoS.
+    if (raw_path_.size() >= 2 && max_dist_vertexes_2d_ > 0.0) {
+      path_.clear();
+      path_.push_back(raw_path_.front());
+      double accum_dist = 0.0;
+      for (size_t i = 1; i < raw_path_.size(); ++i) {
+        accum_dist += (raw_path_[i] - raw_path_[i - 1]).norm();
+        if (accum_dist >= max_dist_vertexes_2d_) {
+          path_.push_back(raw_path_[i]);
+          accum_dist = 0.0;
+        }
+      }
+      // Always include the last point
+      if ((path_.back() - raw_path_.back()).norm() > 1e-6) {
+        path_.push_back(raw_path_.back());
+      }
+    } else {
+      path_ = raw_path_;
+    }
   } else if (global_planner_ == "sjps" || global_planner_ == "sastar") {
     // 1) coarse LoS shortcut with inflation
     path_ = shortCutByLoS(raw_path_, los_cells_);

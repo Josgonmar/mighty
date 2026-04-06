@@ -223,6 +223,11 @@ class HGPPlanner {
   // unknown cell cost weight
   double w_unknown_ = 1.0;
 
+  // ESDF for ground robot A* cost
+  std::shared_ptr<const EsdfGrid2D> esdf_grid_;
+  double esdf_weight_astar_ = 0.0;
+  double esdf_d_safe_astar_ = 0.0;
+
   // LOS post processing
   int los_cells_ = 3;       // number of cells for inflation in LoS
   double min_len_ = 0.5;    // minimum length of edges
@@ -236,6 +241,13 @@ class HGPPlanner {
    *  @param enabled True to restrict planning to 2D.
    */
   void set2DMode(bool enabled) { is_2d_mode_ = enabled; }
+
+  /** @brief Set ESDF grid for distance-based A* cost (ground robot only). */
+  void setEsdfGrid(std::shared_ptr<const EsdfGrid2D> grid, double weight, double d_safe) {
+    esdf_grid_ = grid;
+    esdf_weight_astar_ = weight;
+    esdf_d_safe_astar_ = d_safe;
+  }
 
   /// Whether all path smoothing is disabled (raw A* path is used directly).
   bool disable_all_smoothing_{false};
@@ -266,6 +278,12 @@ class HGPPlanner {
     smooth_iterations_ = iterations;
     smooth_alpha_ = alpha;
   }
+
+  /// Maximum distance between consecutive path waypoints for 2D resampling [m].
+  double max_dist_vertexes_2d_{1.0};
+
+  /** @brief Set max distance between waypoints for 2D path resampling. */
+  void setMaxDistVertexes2D(double d) { max_dist_vertexes_2d_ = d; }
 
   /** @brief Smooth a path using heat-aware Laplacian smoothing.
    *

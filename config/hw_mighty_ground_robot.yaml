@@ -42,7 +42,7 @@ mighty_node:
         sim_frame_offset_qw: 1.0                        # [-]
 
         # --- Vehicle Dynamic Limits ---
-        v_max: 1.0                                      # [m/s]   Max velocity
+        v_max: 0.5                                      # [m/s]   Max velocity
         a_max: 1.0                                      # [m/s^2] Max acceleration
         j_max: 2.0                                     # [m/s^3] Max jerk
         w_max: 1.0                                      # [rad/s] Max yaw rate (~4.0 for hardware)
@@ -95,7 +95,7 @@ mighty_node:
 
         # --- Global Planner ---
         global_planner: "astar_heat"                    # ["sjps", "astar_heat"]
-        inflation_hgp: 0.1                              # [m] Static obstacle inflation for global A* planning
+        inflation_hgp: 0.0                              # [m] Static obstacle inflation (0 when using ESDF/occ_2d)
         hgp_timeout_duration_ms: 10000                  # [ms] Global planner timeout
         max_expand: 1000000                               # [-] Max A* node expansions
 
@@ -106,9 +106,9 @@ mighty_node:
 
         # --- L-BFGS Optimization Weights ---
         dynamic_weight: 1e+3                            # [-] Dynamic obstacle avoidance weight
-        time_weight: 1e+3                               # [-] Time cost weight
+        time_weight: 8e+2                               # [-] Time cost weight
         stat_weight: 0.0                               # [-] Static obstacle weight
-        jerk_weight: 1e+3                               # [-] Jerk smoothness weight
+        jerk_weight: 1e+4                               # [-] Jerk smoothness weight
         dyn_constr_vel_weight: 1e+3                     # [-] Velocity constraint violation weight
         dyn_constr_acc_weight: 1e+3                     # [-] Acceleration constraint violation weight
         dyn_constr_jerk_weight: 1e+3                    # [-] Jerk constraint violation weight
@@ -120,16 +120,16 @@ mighty_node:
         traj_lifetime: 7.0                              # [s] Discard obstacle trajectories older than this
 
         # --- Dynamic Obstacle Heat (soft costs) ---
-        heat_alpha0: 0.5                                # [-] Weight for reachability blob (smaller for ground robot)
-        heat_alpha1: 5.0                                # [-] Weight for trajectory tube
+        heat_alpha0: 0.1                                # [-] Weight for reachability blob (smaller for ground robot)
+        heat_alpha1: 1.5                                # [-] Weight for trajectory tube
         heat_Hmax: 5.0                                  # [-] Maximum dynamic heat value
         dyn_base_inflation_m: 0.7                       # [m] Base inflation for dynamic obstacle bboxes
         dyn_heat_tube_radius_m: 1.5                     # [m] Heat corridor radius (tighter for ground robot)
 
         # --- Static Obstacle Heat (boundary halo) ---
-        static_heat_alpha: 5.0                           # [-] Peak heat at obstacle boundary
-        static_heat_Hmax: 8.0                           # [-] Maximum static heat value
-        static_heat_rmax_m: 1.5                         # [m] Maximum halo radius
+        static_heat_alpha: 1.0                           # [-] Peak heat at obstacle boundary
+        static_heat_Hmax: 1.0                           # [-] Maximum static heat value
+        static_heat_rmax_m: 0.5                         # [m] Maximum halo radius
 
         # --- Obstacle Tracking ---
         cluster_tolerance: 1.0                          # [m] Clustering distance for obstacle detection
@@ -158,10 +158,10 @@ mighty_node:
         free_start_factor: 1.0                          # [-] Radius factor for start freeing
         use_free_goal: false                            # [-] Free the goal voxel if occupied
         free_goal_factor: 2.0                           # [-] Radius factor for goal freeing
-        global_planner_heuristic_weight: 1.0             # [-] A* heuristic weight (higher = greedier)
-        heat_weight: 5.0                                # [-] Overall heat map weight in A* cost
-        max_dist_vertexes: 1.0                          # [m] Max distance between path vertices
-        w_unknown: 10.0                                  # [-] Cost weight for unknown cells
+        global_planner_heuristic_weight: 2.0             # [-] A* heuristic weight (higher = greedier)
+        heat_weight: 1.0                                # [-] Overall heat map weight in A* cost
+        max_dist_vertexes: 0.5                          # [m] Max distance between path vertices
+        w_unknown: 1.0                                  # [-] Cost weight for unknown cells
         w_align: 0.0                                    # [-] Cost weight for alignment with initial velocity
         decay_len_cells: 100.0                          # [-] Decay length for alignment cost
         w_side: 0.0                                     # [-] Cost weight for lateral tie-breaking
@@ -188,7 +188,7 @@ mighty_node:
         obstacle_soft_cost: 50.0                        # [-] Cost per occupied cell step
 
         # --- Path Smoothing ---
-        skip_path_smoothing: true                       # [-] Use heat-aware Laplacian smoothing instead of corner removal
+        skip_path_smoothing: false                       # [-] Use heat-aware Laplacian smoothing instead of corner removal
         disable_all_smoothing: false                    # [-] Disable all path smoothing (use raw A* output)
         smooth_iterations: 50                           # [-] Number of heat-aware Laplacian smoothing passes
         smooth_alpha: 0.3                               # [-] Smoothing relaxation factor (0=none, 1=aggressive)
@@ -204,8 +204,9 @@ mighty_node:
         sfc_use_unknown_as_obstacle: false              # [-] Treat unknown cells as obstacles in SFC generation
 
         # --- L-BFGS Solver Internals ---
+        spline_degree: 3                                # [-] Hermite spline degree (3=cubic, 5=quintic)
         dc: 0.01                                        # [s] Interpolation timestep
-        pos_anchor_weight: 1e+4                         # [-] Position anchor weight (penalizes deviation from HGP waypoints)
+        pos_anchor_weight: 0.0                         # [-] Position anchor weight (penalizes deviation from HGP waypoints)
         dyn_constr_bodyrate_weight: 0.0                 # [-] Body rate constraint weight
         dyn_constr_tilt_weight: 0.0                     # [-] Tilt constraint weight
         dyn_constr_thrust_weight: 0.0                   # [-] Thrust constraint weight
@@ -284,10 +285,16 @@ mighty_node:
         terrain_cost_mode: "max"                        # ["max", "avg"] Height delta aggregation mode
         ground_slab_margin: 0.3                         # [m] Z margin for floor/ceiling virtual obstacles in corridors
 
+        # --- ESDF-Based Obstacle Avoidance (ground robot only) ---
+        use_esdf_cost: true                             # [-] Enable ESDF distance cost in L-BFGS
+        esdf_weight: 1.0e+5                             # [-] ESDF cost weight in objective
+        esdf_d_safe: 0.7                                # [m] Safety distance threshold
+        esdf_truncation_distance: 8                    # [voxels] Must match mapper's distance_grid_2d.truncation_distance
+
         # --- Trajectory Publishing ---
         trajectory_downsample_points: 500               # [-] Number of points to downsample trajectory to
-        use_mpc: true                                   # [-] Publish nav_msgs/Path for MPC instead of custom trajectory
-        mpc_path_spacing: 0.05                          # [m] Spacing between waypoints in MPC path
+        use_mpc: true                                   # [-] Enable trajectory tracker (use_mpc flag triggers tracker launch)
+        mpc_path_spacing: 0.2                           # [m] Spacing between waypoints in MPC path
 
         # --- Debug ---
         global_planner_verbose: false                   # [-] Global planner debug output

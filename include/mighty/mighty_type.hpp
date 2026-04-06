@@ -211,6 +211,7 @@ struct parameters {
   double mass;              // mass in kg
   double g;                 // gravity in m/s^2
   double fopt_threshold;    // threshold for the fopt to consider the optimization successful
+  int spline_degree{5};     // [-] Hermite spline degree: 3 (cubic) or 5 (quintic)
 
   // L-BFGS parameters
   double f_dec_coeff;      // allow larger Armijo steps
@@ -261,6 +262,12 @@ struct parameters {
   double terrain_cost_weight{1.0};       // [-] Multiplier for terrain gradient cost in A*
   std::string terrain_cost_mode{"max"};  // "max" or "avg" of neighbor height deltas
   double ground_slab_margin{0.3};  // [m] z margin for floor/ceiling virtual obstacles in corridors
+
+  // ESDF-based obstacle avoidance (ground robot only)
+  bool use_esdf_cost{false};            // [-] Enable ESDF distance cost in L-BFGS
+  double esdf_weight{1e+3};            // [-] ESDF cost weight in objective
+  double esdf_d_safe{1.0};             // [m] Safety distance threshold
+  int esdf_truncation_distance{10};    // [voxels] Must match mapper config
 
   // Trajectory publishing parameters
   int trajectory_downsample_points{500};  // Number of points to downsample trajectory to
