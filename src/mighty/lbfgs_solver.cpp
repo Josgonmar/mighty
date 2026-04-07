@@ -2739,6 +2739,15 @@ int SolverLBFGS::optimize(const Eigen::VectorXd& z0, Eigen::VectorXd& z_opt, dou
 void SolverLBFGS::setStaticConstraints(const std::vector<LinearConstraint3D>& cons) {
   A_stat_.clear();
   b_stat_.clear();
+
+  if (cons.empty()) {
+    // No corridors (e.g. stat_weight == 0). Fill with empty matrices so A_stat_[s]
+    // is valid for every segment — has_planes will be false and the inner loop is skipped.
+    A_stat_.resize(M_, Eigen::Matrix<double, Eigen::Dynamic, 3>(0, 3));
+    b_stat_.resize(M_, Eigen::VectorXd(0));
+    return;
+  }
+
   A_stat_.reserve(cons.size());
   b_stat_.reserve(cons.size());
 

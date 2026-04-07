@@ -255,6 +255,15 @@ bool MIGHTY::checkIfPointFree(const Vec3f& point) {
 // ----------------------------------------------------------------------------
 
 bool MIGHTY::getSafeCorridor(const vec_Vecf<3>& global_path, const state& A) {
+  // Skip decomposition entirely when static obstacle weight is zero
+  if (par_.stat_weight <= 0.0) {
+    safe_corridor_polytopes_whole_.clear();
+    poly_out_whole_.clear();
+    poly_out_safe_.clear();
+    cvx_decomp_time_ = 0.0;
+    return true;
+  }
+
   // Timer for computing the safe corridor
   MyTimer cvx_decomp_timer(true);
 

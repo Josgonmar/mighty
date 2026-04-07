@@ -225,7 +225,7 @@ def generate_launch_description():
             parameters=[{
                 'L_min': parameters.get('pure_pursuit_L_min', 0.5),
                 'k_v': parameters.get('pure_pursuit_k_v', 0.5),
-                'max_velocity': parameters.get('ground_robot_v_max', 1.0),
+                'max_velocity': parameters.get('ground_robot_v_max', 0.5),
                 'max_angular_velocity': parameters.get('ground_robot_w_max', 3.0),
                 'stopping_radius': parameters.get('pure_pursuit_stopping_radius', 0.1),
                 'adaptive_lookahead_distance': parameters.get('pure_pursuit_adaptive_lookahead_distance', 2.0),
@@ -248,7 +248,7 @@ def generate_launch_description():
             namespace=namespace,
             parameters=[{
                 'control_rate': 50.0,
-                'max_velocity': parameters.get('ground_robot_v_max', 1.0),
+                'max_velocity': parameters.get('ground_robot_v_max', 0.5),
                 'max_angular_velocity': 1.5,
                 'stopping_radius': 0.3,
                 'Kp_along': 1.0,

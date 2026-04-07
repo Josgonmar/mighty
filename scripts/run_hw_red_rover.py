@@ -152,24 +152,24 @@ def generate_yaml(odom_type: str, rover_name: str, goal_type: int) -> str:
             ]
         },
         # MPC Controller (mocap: override pose_topic from dlio/odom_node/pose to world)
-        {
-            'shell_command': [
-                source_ws,
-                f'ros2 launch mpc mpc.launch.py namespace:={rover_name} hardware:=true params_file:={MPC_CONFIG}'
-                if odom_type != 'mocap' else
-                f'ros2 run mpc mpc_node --ros-args -r __ns:=/{rover_name}'
-                f' --params-file {MPC_CONFIG}'
-                f' -p cmd_vel_topic:=cmd_vel_auto'
-                f' -p pose_topic:=world',
-            ]
-        },
+        # {
+        #     'shell_command': [
+        #         source_ws,
+        #         f'ros2 launch mpc mpc.launch.py namespace:={rover_name} hardware:=true params_file:={MPC_CONFIG}'
+        #         if odom_type != 'mocap' else
+        #         f'ros2 run mpc mpc_node --ros-args -r __ns:=/{rover_name}'
+        #         f' --params-file {MPC_CONFIG}'
+        #         f' -p cmd_vel_topic:=cmd_vel_auto'
+        #         f' -p pose_topic:=world',
+        #     ]
+        # },
         # Goal Monitor
-        {
-            'shell_command': [
-                source_ws,
-                goal_monitor_cmd,
-            ]
-        },
+        # {
+        #     'shell_command': [
+        #         source_ws,
+        #         goal_monitor_cmd,
+        #     ]
+        # },
         # Bag recorder
         {
             'shell_command': [

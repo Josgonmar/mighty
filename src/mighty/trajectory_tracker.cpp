@@ -1,10 +1,11 @@
 #include <mighty/trajectory_tracker.hpp>
+#include <fstream>
 
 TrajectoryTracker::TrajectoryTracker()
     : Node("trajectory_tracker"), traj_start_time_(0, 0, RCL_ROS_TIME) {
   // Declare parameters
   this->declare_parameter("control_rate", 50.0);
-  this->declare_parameter("max_velocity", 1.0);
+  this->declare_parameter("max_velocity", 0.5);
   this->declare_parameter("max_angular_velocity", 1.5);
   this->declare_parameter("stopping_radius", 0.3);
   this->declare_parameter("Kp_along", 1.0);
@@ -53,10 +54,11 @@ void TrajectoryTracker::trajectoryCallback(const dynus_interfaces::msg::Trajecto
   if (msg->goals.size() < 2 || msg->dt <= 0.0) return;
 
   // On every new trajectory, find closest point to robot and set time offset.
-  // MIGHTY replans frequently (~30 Hz), and each new trajectory has a fresh
-  // speed profile starting from zero. By anchoring to the closest waypoint,
-  // we jump past the ramp-up phase and interpolate from where the robot
-  // actually is — so the feedforward speed matches the planned cruise speed.
+  // We anchor to the closest waypoint so interpolation starts where the robot
+  // actually is. To avoid the speed ramp-up problem (closest=0 → t_elapsed≈0
+  // → tiny ref_speed → robot can't overcome friction → closest stays 0),
+  // we skip at least a few indices ahead so the tracker reads cruise-speed
+  // portions of the trajectory.
   if (state_initialized_) {
     double rx = current_state_.pos.x;
     double ry = current_state_.pos.y;
@@ -68,8 +70,10 @@ void TrajectoryTracker::trajectoryCallback(const dynus_interfaces::msg::Trajecto
       double d2 = dx * dx + dy * dy;
       if (d2 < min_d2) { min_d2 = d2; closest = i; }
     }
-    // Set start time so interpolation begins at the closest point
-    double offset = closest * msg->dt;
+    // Skip past ramp-up: start at least a few points ahead of closest
+    size_t min_skip = std::min(static_cast<size_t>(10), msg->goals.size() - 1);
+    size_t start_idx = std::max(closest, min_skip);
+    double offset = start_idx * msg->dt;
     traj_start_time_ = this->now() - rclcpp::Duration::from_seconds(offset);
   } else if (!trajectory_initialized_) {
     traj_start_time_ = this->now();
@@ -172,6 +176,20 @@ void TrajectoryTracker::controlCallback() {
 
   double ref_speed = std::sqrt(ref.vx * ref.vx + ref.vy * ref.vy);
 
+  // When reference speed is too low, atan2-derived yaw is noise.
+  // Use bearing to the next trajectory point if far enough away,
+  // otherwise hold current yaw to avoid spinning in place.
+  if (ref_speed < 0.05) {
+    double dx = ref.x - rx;
+    double dy = ref.y - ry;
+    double dist = std::sqrt(dx * dx + dy * dy);
+    if (dist > 0.1) {
+      ref.yaw = std::atan2(dy, dx);
+    } else {
+      ref.yaw = r_yaw;
+    }
+  }
+
   // --- Check if at end of trajectory ---
   const auto& last = trajectory_.goals.back();
   double dx_goal = last.p.x - rx;
@@ -231,6 +249,30 @@ void TrajectoryTracker::controlCallback() {
   w_cmd = w_smoothing_ * prev_w_cmd_ + (1.0 - w_smoothing_) * w_cmd;
   prev_v_cmd_ = v_cmd;
   prev_w_cmd_ = w_cmd;
+
+  // --- Debug log to file ---
+  {
+    static std::ofstream log_file("/tmp/tracker_debug.txt", std::ios::app);
+    static int log_count = 0;
+    if (log_count % 10 == 0) {  // log every 10th cycle (~5 Hz at 50 Hz control)
+      log_file << "t=" << t_elapsed
+               << " pos=(" << rx << "," << ry << ")"
+               << " r_yaw=" << r_yaw
+               << " quat=(" << current_state_.quat.x << "," << current_state_.quat.y
+               << "," << current_state_.quat.z << "," << current_state_.quat.w << ")"
+               << " ref=(" << ref.x << "," << ref.y << ")"
+               << " ref_yaw=" << ref.yaw << " ref_speed=" << ref_speed
+               << " yaw_err=" << yaw_error
+               << " e_along=" << e_along << " e_cross=" << e_cross
+               << " v_cmd=" << v_cmd << " w_cmd=" << w_cmd
+               << " dist_goal=" << dist_to_goal << " past_end=" << past_end
+               << " traj_sz=" << trajectory_.goals.size()
+               << " traj_id=" << current_traj_id_
+               << "\n";
+      log_file.flush();
+    }
+    log_count++;
+  }
 
   // --- Publish cmd_vel ---
   geometry_msgs::msg::Twist twist;

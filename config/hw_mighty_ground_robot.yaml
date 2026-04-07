@@ -74,7 +74,7 @@ mighty_node:
 
         # --- Ground Robot Planning ---
         ground_robot_L_min: 0.2                         # [m] Lookahead distance for point A (planning start point)
-        ground_robot_v_max: 1.0                         # [m/s] Max linear velocity for ground robot
+        ground_robot_v_max: 0.5                         # [m/s] Max linear velocity for ground robot
         ground_robot_w_max: 0.5                         # [rad/s] Max angular velocity for smooth tracking
 
         # --- Pure Pursuit Controller ---
