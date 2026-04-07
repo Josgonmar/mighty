@@ -165,15 +165,17 @@ class MapUtil {
 
     // 2) Compute how many cells below/above center we keep,
     //    strictly within [z_ground, z_max]
-    int halfZ = dimZ / 2;
-    int down = halfZ, up = halfZ;
+    // Split dimZ into down/up halves. Use ceiling for `up` so dimZ==1 yields
+    // down=0/up=1 (a single z-slice at center) instead of collapsing to 0.
+    int down = dimZ / 2;
+    int up = (dimZ + 1) / 2;
     // world coords of bottom slice:
-    float bot = center_map.z() - halfZ * res_;
+    float bot = center_map.z() - down * res_;
     if (bot < z_ground) down = std::max(int(std::floor((center_map.z() - z_ground) / res_)), 0);
     // top slice:
-    float top = center_map.z() + halfZ * res_;
+    float top = center_map.z() + up * res_;
     if (top > z_max) up = std::max(int(std::floor((z_max - center_map.z()) / res_)), 1);
-    dimZ = down + up;
+    dimZ = std::max(down + up, 1);
 
     // 3) Compute origin (global coords of cell (0,0,0)) and snap to resolution grid
     //    so that voxel boundaries align with the global mapper's grid
@@ -1876,6 +1878,14 @@ class MapUtil {
     map_2d_.assign(n2d, val_free_);
     heat_2d_.assign(n2d, 0.0f);
 
+    // A MIGHTY cell of width res_ centered at (wx, wy) intersects an obstacle
+    // if the ESDF distance anywhere inside the cell is <= 0. Querying only the
+    // center misses obstacles that clip the cell's corners. The half-diagonal
+    // of the cell (res_*sqrt(2)/2) is the worst-case distance from the center
+    // to any point inside, so anything with center distance <= half_diag could
+    // be occupied somewhere within the cell.
+    const double half_diag = res_ * 0.5 * std::sqrt(2.0);
+
     for (int y = 0; y < dimY; ++y) {
       for (int x = 0; x < dimX; ++x) {
         const double wx = origin_d_(0) + (x + 0.5) * res_;
@@ -1884,16 +1894,16 @@ class MapUtil {
 
         if (esdf.isInBounds(wx, wy)) {
           const double d = esdf.queryDistance(wx, wy);
-          if (d <= 0.0) {
+          if (d <= half_diag) {
             map_2d_[idx] = val_occ_;
             heat_2d_[idx] = static_cast<float>(h_max);
           } else if (d < d_safe) {
             heat_2d_[idx] = static_cast<float>(h_max * (1.0 - d / d_safe));
           }
-        } else {
-          // Outside ESDF bounds: unknown/occupied
-          map_2d_[idx] = val_occ_;
         }
+        // Outside ESDF bounds: leave as free (initialized above). Marking
+        // OOB as occupied creates phantom walls when MIGHTY's robot-centered
+        // window extends past the mapper's fixed-origin coverage.
       }
     }
     has_2d_map_ = true;
@@ -1919,32 +1929,56 @@ class MapUtil {
     // Compute distance field from the binary occupancy grid (truncated at d_safe)
     std::vector<float> dist = occ.computeDistanceField(d_safe);
 
+    const double inv_occ_res = occ.invResolution();
+    const int occ_w = occ.width();
+    const int occ_h = occ.height();
+    const auto& occ_data = occ.occupiedData();
+
     for (int y = 0; y < dimY; ++y) {
       for (int x = 0; x < dimX; ++x) {
-        // Convert MIGHTY grid cell to world coordinates
+        // Convert MIGHTY grid cell to world coordinates (cell extent is [wx-h, wx+h])
         const double wx = origin_d_(0) + (x + 0.5) * res_;
         const double wy = origin_d_(1) + (y + 0.5) * res_;
+        const double half = 0.5 * res_;
         const size_t idx = static_cast<size_t>(x) + static_cast<size_t>(dimX) * y;
 
-        // Map to occ grid cell
-        int ox = static_cast<int>(std::floor((wx - occ.originX()) * occ.invResolution()));
-        int oy = static_cast<int>(std::floor((wy - occ.originY()) * occ.invResolution()));
+        // Range of underlying occ-grid cells overlapping this MIGHTY cell.
+        int ox_min = static_cast<int>(std::floor((wx - half - occ.originX()) * inv_occ_res));
+        int ox_max = static_cast<int>(std::floor((wx + half - occ.originX()) * inv_occ_res));
+        int oy_min = static_cast<int>(std::floor((wy - half - occ.originY()) * inv_occ_res));
+        int oy_max = static_cast<int>(std::floor((wy + half - occ.originY()) * inv_occ_res));
 
-        if (ox < 0 || ox >= occ.width() || oy < 0 || oy >= occ.height()) {
-          map_2d_[idx] = val_occ_;  // outside occ grid → blocked
+        // Clip to source grid. Cells with no overlap at all stay free
+        // (don't ring the map with phantom walls when MIGHTY's window
+        // extends past the mapper's fixed-origin coverage).
+        ox_min = std::max(ox_min, 0);
+        oy_min = std::max(oy_min, 0);
+        ox_max = std::min(ox_max, occ_w - 1);
+        oy_max = std::min(oy_max, occ_h - 1);
+        if (ox_min > ox_max || oy_min > oy_max) {
           continue;
         }
 
-        size_t oidx = static_cast<size_t>(oy) * occ.width() + ox;
+        // Mark occupied if ANY underlying source cell is occupied. Otherwise
+        // pull heat from the nearest underlying source cell (smallest d → max heat).
+        bool any_occ = false;
+        float min_d = static_cast<float>(d_safe);
+        for (int oy = oy_min; oy <= oy_max && !any_occ; ++oy) {
+          for (int ox = ox_min; ox <= ox_max; ++ox) {
+            const size_t oidx = static_cast<size_t>(oy) * occ_w + ox;
+            if (occ_data[oidx]) {
+              any_occ = true;
+              break;
+            }
+            if (dist[oidx] < min_d) min_d = dist[oidx];
+          }
+        }
 
-        if (occ.occupiedData()[oidx]) {
+        if (any_occ) {
           map_2d_[idx] = val_occ_;
           heat_2d_[idx] = static_cast<float>(h_max);
-        } else {
-          float d = dist[oidx];
-          if (d < static_cast<float>(d_safe)) {
-            heat_2d_[idx] = static_cast<float>(h_max * (1.0 - d / d_safe));
-          }
+        } else if (min_d < static_cast<float>(d_safe)) {
+          heat_2d_[idx] = static_cast<float>(h_max * (1.0 - min_d / d_safe));
         }
       }
     }

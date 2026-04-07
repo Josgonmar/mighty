@@ -57,7 +57,7 @@ mighty_node:
         g: 9.81                                         # [m/s^2] Gravitational acceleration
 
         # --- Trajectory Segments ---
-        num_N: 5                                        # [-] Number of trajectory pieces for local optimization
+        num_N: 6                                        # [-] Number of trajectory pieces for local optimization
 
         # --- Map Bounds ---
         x_min: -1000.0                                  # [m] Map x lower bound
@@ -66,7 +66,7 @@ mighty_node:
         y_max: 1000.0                                   # [m] Map y upper bound
         z_min: -0.4                                     # [m] Min altitude (matches global mapper z_ground)
         z_max: 0.5                                      # [m] Max altitude (must include real obstacle heights from lidar)
-        mighty_map_res: 0.3                             # [m] Voxel map resolution (coarser for ground robot)
+        mighty_map_res: 0.15                             # [m] Voxel map resolution (coarser for ground robot)
 
         # --- Goal ---
         force_goal_z: true                              # [-] Force goal to a fixed height (RViz GUI goals have z=0)
@@ -95,7 +95,7 @@ mighty_node:
 
         # --- Global Planner ---
         global_planner: "astar_heat"                    # ["sjps", "astar_heat"]
-        inflation_hgp: 0.0                              # [m] Static obstacle inflation (0 when using ESDF/occ_2d)
+        inflation_hgp: 0.3                              # [m] Static obstacle inflation (0 when using ESDF/occ_2d)
         hgp_timeout_duration_ms: 10000                  # [ms] Global planner timeout
         max_expand: 1000000                               # [-] Max A* node expansions
 
@@ -106,7 +106,7 @@ mighty_node:
 
         # --- L-BFGS Optimization Weights ---
         dynamic_weight: 1e+3                            # [-] Dynamic obstacle avoidance weight
-        time_weight: 8e+2                               # [-] Time cost weight
+        time_weight: 1e+2                               # [-] Time cost weight
         stat_weight: 0.0                               # [-] Static obstacle weight
         jerk_weight: 1e+4                               # [-] Jerk smoothness weight
         dyn_constr_vel_weight: 1e+3                     # [-] Velocity constraint violation weight
@@ -138,9 +138,9 @@ mighty_node:
         velocity_threshold: 0.8                         # [m/s] Speed threshold: below = static, above = dynamic
 
         # --- Map Window ---
-        initial_wdx: 20.0                               # [m] Initial map window width
-        initial_wdy: 20.0                               # [m] Initial map window depth
-        initial_wdz: 1.5                                # [m] Initial map window height (tall enough for obstacle detection + heat)
+        initial_wdx: 15.0                               # [m] Initial map window width
+        initial_wdy: 15.0                               # [m] Initial map window depth
+        initial_wdz: 0.15                               # [m] Match map res — 2D ground-robot mode only needs a single z-layer
 
         # --- Sensor ---
         depth_camera_depth_max: 10.0                    # [m] Max depth camera range (d435 in simulation)
@@ -158,8 +158,8 @@ mighty_node:
         free_start_factor: 1.0                          # [-] Radius factor for start freeing
         use_free_goal: false                            # [-] Free the goal voxel if occupied
         free_goal_factor: 2.0                           # [-] Radius factor for goal freeing
-        global_planner_heuristic_weight: 2.0             # [-] A* heuristic weight (higher = greedier)
-        heat_weight: 1.0                                # [-] Overall heat map weight in A* cost
+        global_planner_heuristic_weight: 1.0             # [-] A* heuristic weight (higher = greedier)
+        heat_weight: 5.0                                # [-] Overall heat map weight in A* cost
         max_dist_vertexes: 0.5                          # [m] Max distance between path vertices
         w_unknown: 1.0                                  # [-] Cost weight for unknown cells
         w_align: 0.0                                    # [-] Cost weight for alignment with initial velocity
@@ -178,7 +178,7 @@ mighty_node:
         heat_num_samples: 15                            # [-] Samples for heat computation
         static_heat_enabled: true                       # [-] Enable static obstacle heat
         static_heat_p: 2                                # [-] Static heat falloff power
-        static_heat_default_radius_m: 2.0               # [m] Default static heat radius
+        static_heat_default_radius_m: 0.5               # [m] Default static heat radius
         static_heat_boundary_only: true                 # [-] Apply heat only at boundary voxels
         static_heat_apply_on_unknown: false             # [-] Apply static heat on unknown cells
         static_heat_exclude_dynamic: true               # [-] Exclude dynamic obstacles from static heat
@@ -192,7 +192,7 @@ mighty_node:
         disable_all_smoothing: false                    # [-] Disable all path smoothing (use raw A* output)
         smooth_iterations: 50                           # [-] Number of heat-aware Laplacian smoothing passes
         smooth_alpha: 0.3                               # [-] Smoothing relaxation factor (0=none, 1=aggressive)
-        heat_cutoff_ratio: 0.5                          # [-] Cells with heat > ratio * Hmax are impassable (0=disabled)
+        heat_cutoff_ratio: 0.0                          # [-] Cells with heat > ratio * Hmax are impassable (0=disabled)
         los_cells: 3                                    # [cells] Line-of-sight inflation
         min_len: 0.0                                    # [m] Min segment length
         min_turn: 0.0                                   # [deg] Min turn angle
@@ -213,7 +213,7 @@ mighty_node:
         num_dyn_obst_samples: 10                        # [-] Dynamic obstacle samples in optimization
         integral_resolution: 8                          # [-] Integral resolution
         hinge_mu: 1e-2                                  # [-] Hinge loss parameter
-        fopt_threshold: 1.0e+5                        # [-] Optimization success threshold
+        fopt_threshold: 1.0e+6                        # [-] Optimization success threshold
         init_turn_bf: 80.0                              # [deg] Initial turn buffer
         f_dec_coeff: 1e-3                               # [-] Armijo step coefficient
         cautious_factor: 1.0e-6                         # [-] BFGS update threshold
@@ -240,11 +240,11 @@ mighty_node:
         yaw_spinning_dyaw: 1.0                          # [rad/s] Spinning yaw rate
 
         # --- Map Internals ---
-        map_buffer: 1.0                                 # [m] Buffer for goal & A point
+        map_buffer: 0.0                                 # [m] Buffer for goal & A point
         center_shift_factor: 0.5                        # [-] Map center shift factor
-        min_wdx: 20.0                                   # [m] Min map window width
-        min_wdy: 20.0                                   # [m] Min map window depth
-        min_wdz: 1.5                                    # [m] Min map window height (tall enough for obstacle detection + heat)
+        min_wdx: 15.0                                   # [m] Min map window width
+        min_wdy: 15.0                                   # [m] Min map window depth
+        min_wdz: 0.15                                   # [m] Match map res — 2D ground-robot mode only needs a single z-layer
 
         # --- Communication Delay ---
         use_comm_delay_inflation: true                  # [-] Enable communication delay inflation

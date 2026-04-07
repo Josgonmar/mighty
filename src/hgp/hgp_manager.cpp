@@ -1191,9 +1191,13 @@ void HGPManager::updateMap(double wdx, double wdy, double wdz, const Vec3f& cent
   auto start_time = std::chrono::high_resolution_clock::now();
 
   mtx_map_util_.lock();
-  map_util_->readMap(pclptr, pclptr_unk, (int)(wdx / res_), (int)(wdy / res_), (int)(wdz / res_),
-                     center_map, par_.z_min, par_.z_max, par_.inflation_hgp, obst_pos, obst_bbox,
-                     traj_max_time);
+  // Use round (not truncation) so wdz==res_ reliably gives ≥1 cell despite
+  // floating-point rep of values like 0.15. Floor for x/y was already safe in
+  // practice (windows are large) but rounding is more robust there too.
+  map_util_->readMap(pclptr, pclptr_unk, std::max(1, (int)std::lround(wdx / res_)),
+                     std::max(1, (int)std::lround(wdy / res_)),
+                     std::max(1, (int)std::lround(wdz / res_)), center_map, par_.z_min, par_.z_max,
+                     par_.inflation_hgp, obst_pos, obst_bbox, traj_max_time);
 
   // Build 2D ground robot map
   if (is_ground_robot_) {
