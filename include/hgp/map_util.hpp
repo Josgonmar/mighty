@@ -1961,6 +1961,9 @@ class MapUtil {
 
         // Mark occupied if ANY underlying source cell is occupied. Otherwise
         // pull heat from the nearest underlying source cell (smallest d → max heat).
+        // NOTE: occ_data only flags true-occupied cells (>=100). Unknown cells
+        // (-1) are implicitly traversable for HGP A* — this gives us the
+        // "plan through unknown" semantics that frontier exploration needs.
         bool any_occ = false;
         float min_d = static_cast<float>(d_safe);
         for (int oy = oy_min; oy <= oy_max && !any_occ; ++oy) {

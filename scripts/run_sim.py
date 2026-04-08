@@ -83,6 +83,29 @@ def find_workspace_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent.parent
 
 
+def exploration_enabled_in_yaml(config_path: Path) -> bool:
+    """Return True if `exploration.enabled: true` appears in the given YAML.
+    Tolerant to the dotted-key form used by ROS 2 parameter files. Used to
+    auto-skip goal_sender when frontier-based exploration would drive the
+    robot itself.
+    """
+    if not config_path.exists():
+        return False
+    try:
+        with open(config_path, 'r') as f:
+            for raw in f:
+                line = raw.split('#', 1)[0].strip()
+                if not line:
+                    continue
+                # Match `exploration.enabled: true` (with optional whitespace).
+                if line.startswith('exploration.enabled'):
+                    _, _, val = line.partition(':')
+                    return val.strip().lower() == 'true'
+    except OSError:
+        pass
+    return False
+
+
 def find_rviz_config() -> Path:
     """Find the RViz config in the source tree (relative to this script)."""
     script_path = Path(__file__).resolve()
@@ -710,6 +733,18 @@ def main():
             start_pos[2] = 0.0  # Ground robot base_link at z=0 (wheels at ground)
         start_pos = tuple(start_pos)
 
+        # If frontier-based exploration is enabled in the ground-robot config,
+        # auto-skip the goal_sender pane — the exploration loop will issue
+        # goals and a manual goal_sender publication would just preempt it.
+        no_goal = args.no_goal
+        if use_ground_robot and not no_goal:
+            cfg_path = (Path(__file__).resolve().parent.parent
+                        / 'config' / 'mighty_ground_robot.yaml')
+            if exploration_enabled_in_yaml(cfg_path):
+                no_goal = True
+                print(f"[INFO] Exploration enabled in {cfg_path.name} — "
+                      f"skipping goal_sender (frontier loop drives the robot)")
+
         yaml_content = generate_gazebo_yaml(
             setup_bash,
             goal=tuple(args.goal),
@@ -721,14 +756,15 @@ def main():
             use_rviz=use_rviz,
             use_gazebo_gui=args.gazebo_gui,
             use_ground_robot=use_ground_robot,
-            no_goal=args.no_goal
+            no_goal=no_goal
         )
         print(f"[INFO] Mode: Single-agent Gazebo simulation (sim_env={sim_env})")
         print(f"[INFO] Environment: {args.env} (world: {world_name})")
         if use_ground_robot:
             print(f"[INFO] Vehicle: Ground robot (Pioneer 3-AT)")
         print(f"[INFO] Start: ({start_pos[0]}, {start_pos[1]}, {start_pos[2]})")
-        print(f"[INFO] Goal: ({args.goal[0]}, {args.goal[1]}, {args.goal[2]})")
+        if not no_goal:
+            print(f"[INFO] Goal: ({args.goal[0]}, {args.goal[1]}, {args.goal[2]})")
 
     if args.dry_run:
         print("\n[DRY RUN] Generated YAML:")

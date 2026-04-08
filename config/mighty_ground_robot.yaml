@@ -129,7 +129,7 @@ mighty_node:
         # --- Static Obstacle Heat (boundary halo) ---
         static_heat_alpha: 1.0                           # [-] Peak heat at obstacle boundary
         static_heat_Hmax: 1.0                           # [-] Maximum static heat value
-        static_heat_rmax_m: 0.5                         # [m] Maximum halo radius
+        static_heat_rmax_m: 1.0                         # [m] Maximum halo radius
 
         # --- Obstacle Tracking ---
         cluster_tolerance: 1.0                          # [m] Clustering distance for obstacle detection
@@ -192,7 +192,7 @@ mighty_node:
         disable_all_smoothing: false                    # [-] Disable all path smoothing (use raw A* output)
         smooth_iterations: 50                           # [-] Number of heat-aware Laplacian smoothing passes
         smooth_alpha: 0.3                               # [-] Smoothing relaxation factor (0=none, 1=aggressive)
-        heat_cutoff_ratio: 0.5                          # [-] Cells with heat > ratio * Hmax are impassable (0=disabled)
+        heat_cutoff_ratio: 0.0                          # [-] Cells with heat > ratio * Hmax are impassable (0=disabled)
         los_cells: 3                                    # [cells] Line-of-sight inflation
         min_len: 0.0                                    # [m] Min segment length
         min_turn: 0.0                                   # [deg] Min turn angle
@@ -277,7 +277,7 @@ mighty_node:
 
         # --- 2D Ground Robot Planning (not used for UAV) ---
         use_2d_planning: true                          # [-] Enable 2D terrain-aware planning for ground robots
-        robot_height: 0.5                               # [m] Robot height for obstacle column detection
+        robot_height: 1.0                               # [m] Robot height for obstacle column detection
         obstacle_min_height: 0.3                        # [m] Min column height span to classify as obstacle
         use_column_any_occupied: true                    # [-] Any occupied voxel in column → 2D occupied
         column_min_z: 0.15                              # [m] Ignore occupied voxels below this z (filters ground floor)
@@ -311,3 +311,55 @@ mighty_node:
         use_benchmark: true                             # [-] Enable benchmarking data logging
         file_path: ""                                   # Path to save benchmark CSV
         use_only_global_planner: false                  # [-] Use only global planner for benchmarking
+
+        # --- Frontier-Based Exploration ---
+        # Detects unexplored frontiers in the 2D occupancy grid and autonomously
+        # drives to them. A manual term_goal preempts; exploration resumes after
+        # the manual goal is reached. See plan: snazzy-moseying-donut.md
+        exploration.enabled: true                                # [-] Master switch
+        exploration.select_rate_hz: 1.0                          # [Hz] Goal-selection tick
+        exploration.default_goal_z: 0.0                          # [m]  z for issued exploration goals
+        exploration.detector.cluster_min_cells: 6                # [cells] drop tiny frontier clusters
+        exploration.detector.border_margin_cells: 2              # [cells] exclude N-cell border ring
+        exploration.detector.obstacle_clearance_cells: 1         # [cells] reject frontier cells with an OCCUPIED neighbor within N cells (0=disabled)
+        exploration.detector.min_obstacle_distance_m: 0.5        # [m]  ESDF-based clearance: drop frontiers whose centroid is closer than this to any obstacle (0=disabled). Uses esdf_2d_topic if available.
+        exploration.detector.robot_snap_radius_m: 1.0            # [m]  spiral search if robot not on free cell
+        # Optional axis-aligned exploration bounds. When enabled, frontier
+        # seeds outside the box are dropped, so the robot only receives
+        # exploration goals inside [min_x,max_x] x [min_y,max_y]. RViz shows
+        # the box as a yellow rectangle with the label "Exploration Area".
+        exploration.bounds.enabled: true                         # [-]  master switch
+        exploration.bounds.min_x: -7.0                          # [m]
+        exploration.bounds.max_x:  25.0                          # [m]
+        exploration.bounds.min_y: -27.0                          # [m]
+        exploration.bounds.max_y:  8.0                          # [m]
+        exploration.utility.w_size: 1.0                          # weight on frontier size
+        exploration.utility.w_dist: 2.0                          # weight on Euclidean distance penalty
+        exploration.utility.w_info: 1.0                          # weight on unknown-disk info gain
+        exploration.utility.w_revisit: 0.5                       # weight on visit-count penalty
+        exploration.utility.w_heading: 0.3                       # weight on heading-alignment bonus
+        exploration.utility.size_ref_m2: 5.0                     # [m^2] size normalizer
+        exploration.utility.dist_ref_m: 25.0                     # [m]   distance normalizer
+        exploration.utility.sensor_radius_m: 5.0                 # [m]   info-gain disk radius
+        exploration.utility.goal_select_threshold: -1.0e9        # [-]   utility floor (-inf = always pick)
+        exploration.manager.merge_radius_m: 1.0                  # [m]   spatial-match radius
+        exploration.manager.centroid_ema_alpha: 0.5              # [-]   EMA blend factor
+        exploration.manager.visit_radius_m: 2.0                  # [m]   robot-near-frontier threshold
+        exploration.manager.visit_dwell_sec: 1.0                 # [s]   accumulated dwell to mark VISITED
+        exploration.manager.verify_radius_cells: 2               # [cells] unknown-neighbor radius for VISITED check
+        exploration.manager.max_frontiers: 1000                  # [-]   DB cap; oldest VISITED evicted first
+        exploration.manager.unreachable_consec_thresh: 5         # [-]   HGP failures -> INVALIDATED
+        # Persistent visited bitmap. Records every cell ever observed (FREE or
+        # OCCUPIED) so the detector skips frontiers along the seam where the
+        # sliding mapper window re-blanks revisited areas to UNKNOWN. Light
+        # memory: 100x100m at 0.15m = ~56 KB. Bump width/height_m if missions
+        # cover a larger area; cells outside this box default to "not visited"
+        # and so will not be filtered.
+        exploration.visited_map.center_x: 0.0                    # [m]   bitmap center x (world frame)
+        exploration.visited_map.center_y: 0.0                    # [m]   bitmap center y (world frame)
+        exploration.visited_map.width_m: 100.0                   # [m]   total extent (must cover full mission area)
+        exploration.visited_map.height_m: 100.0                  # [m]
+        exploration.visited_map.resolution_m: 0.15               # [m]   match the local occ_2d resolution
+        exploration.visited_map.publish: true                    # [-]   publish on /exploration/visited_map for RViz
+        exploration.visited_map.fuse_into_local: true            # [-]   restore last-known FREE/OCCUPIED into UNKNOWN local cells on revisit (static-env only)
+        exploration.visualization.publish_markers: true          # [-]   Publish /exploration/frontiers

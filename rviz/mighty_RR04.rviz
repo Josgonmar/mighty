@@ -5,14 +5,19 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Common1
+        - /Common1/TF1
+        - /Common1/TF1/Frames1
         - /Benchmarking1/Trajectories1/Namespaces1
         - /RR041
+        - /RR041/Planning1
         - /RR041/Planning1/RR04 Traj1/Topic1
         - /RR041/Mapping1
         - /RR041/Mapping1/RR04 D435 PointCloud1/Topic1
         - /RR041/Mapping1/RR04 Lidar PointCloud1/Topic1
         - /RR041/Ground 2D1
         - /RR041/Ground 2D1/RR04 2D ESDF1
+        - /RR041/Ground 2D1/RR04 2D ESDF1/Position1
       Splitter Ratio: 0.5
     Tree Height: 1668
   - Class: rviz_common/Selection
@@ -32,7 +37,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: RR04 ACL Map Occupied
 Visualization Manager:
   Class: ""
   Displays:
@@ -51,7 +56,7 @@ Visualization Manager:
           Offset:
             X: 0
             Y: 0
-            Z: 0
+            Z: -0.4000000059604645
           Plane: XY
           Plane Cell Count: 10
           Reference Frame: <Fixed Frame>
@@ -61,13 +66,61 @@ Visualization Manager:
           Frame Timeout: 15
           Frames:
             All Enabled: false
+            RR04/base_link:
+              Value: true
+            RR04/lidar:
+              Value: false
+            RR04/livox_frame:
+              Value: false
+            RR04/map:
+              Value: false
+            RR04/odom:
+              Value: false
+            RR04/sensor_tower:
+              Value: false
+            RR04_d435_link:
+              Value: false
+            RR04_d455_link:
+              Value: false
+            RR06:
+              Value: false
+            RR06/base_link:
+              Value: false
+            RR06/lidar:
+              Value: false
+            RR06/livox_frame:
+              Value: false
+            RR06/map:
+              Value: false
+            RR06/odom:
+              Value: false
+            RR06/sensor_tower:
+              Value: false
+            RR06_d435_link:
+              Value: false
+            RR06_d455_link:
+              Value: false
+            world:
+              Value: false
           Marker Scale: 5
           Name: TF
           Show Arrows: false
           Show Axes: true
           Show Names: true
           Tree:
-            {}
+            RR04/map:
+              RR04/odom:
+                RR04/base_link:
+                  RR04/lidar:
+                    {}
+                  RR04/livox_frame:
+                    {}
+                  RR04/sensor_tower:
+                    {}
+                  RR04_d435_link:
+                    {}
+                  RR04_d455_link:
+                    {}
           Update Interval: 0
           Value: true
         - Class: rviz_default_plugins/Marker
@@ -188,7 +241,8 @@ Visualization Manager:
               Enabled: true
               Name: RR04 Original Global Path
               Namespaces:
-                {}
+                global_path_dots: true
+                global_path_line: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -200,7 +254,8 @@ Visualization Manager:
               Enabled: true
               Name: RR04 HGP path
               Namespaces:
-                {}
+                global_path_dots: true
+                global_path_line: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -208,28 +263,11 @@ Visualization Manager:
                 Reliability Policy: Reliable
                 Value: /RR04/hgp_path_marker
               Value: true
-            - Alpha: 0.009999999776482582
-              BoundColor: 165; 29; 45
-              Class: decomp_rviz_plugins/PolyhedronArray
-              Enabled: false
-              MeshColor: 246; 97; 81
-              Name: RR04 Poly for Safe Trajs
-              Scale: 0.004999999888241291
-              State: Both
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /RR04/poly_whole
-              Value: false
-              VsColor: 255; 0; 0
-              VsScale: 1
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
               Name: RR04 Traj
               Namespaces:
-                {}
+                state_vec: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -249,18 +287,6 @@ Visualization Manager:
                 Reliability Policy: Reliable
                 Value: /RR04/traj_subopt_colored
               Value: false
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: RR04 Actual Trajectory
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /RR04/actual_traj
-              Value: true
             - Class: rviz_default_plugins/MarkerArray
               Enabled: false
               Name: RR04 Hover Avoidance
@@ -485,7 +511,7 @@ Visualization Manager:
               Color: 246; 97; 81
               Color Transformer: FlatColor
               Decay Time: 0
-              Enabled: true
+              Enabled: false
               Invert Rainbow: false
               Max Color: 255; 255; 255
               Max Intensity: 4096
@@ -506,7 +532,7 @@ Visualization Manager:
                 Value: /RR04/occupancy_grid
               Use Fixed Frame: true
               Use rainbow: true
-              Value: true
+              Value: false
             - Alpha: 1
               Autocompute Intensity Bounds: true
               Autocompute Value Bounds:
@@ -646,7 +672,7 @@ Visualization Manager:
               Color: 255; 170; 0
               Color Transformer: FlatColor
               Decay Time: 0
-              Enabled: false
+              Enabled: true
               Invert Rainbow: false
               Max Color: 255; 255; 255
               Max Intensity: 4096
@@ -667,7 +693,7 @@ Visualization Manager:
                 Value: /RR04/ground_2d_occupied
               Use Fixed Frame: true
               Use rainbow: false
-              Value: false
+              Value: true
             - Alpha: 1
               Autocompute Intensity Bounds: true
               Autocompute Value Bounds:
@@ -731,7 +757,7 @@ Visualization Manager:
               Enabled: true
               Name: RR04 Vel Text
               Namespaces:
-                {}
+                velocity: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -770,7 +796,7 @@ Visualization Manager:
               Enabled: true
               Name: RR04 tracked obstacles
               Namespaces:
-                {}
+                "": true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -782,7 +808,8 @@ Visualization Manager:
               Enabled: true
               Name: RR04 Cluster Bbox
               Namespaces:
-                {}
+                centroid: true
+                wireframe: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -866,25 +893,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 24.29758071899414
+      Distance: 22.98865509033203
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.508195638656616
-        Y: -1.8782745599746704
-        Z: 1.2653928995132446
+        X: 0.2483861893415451
+        Y: -0.21098271012306213
+        Z: -0.9097769856452942
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 1.4097964763641357
       Target Frame: map
       Value: Orbit (rviz_default_plugins)
-      Yaw: 4.717405796051025
+      Yaw: 3.139331340789795
     Saved: ~
 Window Geometry:
   Displays:

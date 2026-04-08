@@ -184,3 +184,8 @@ mighty_node:
         use_multiple_initial_guesses: false          # [-] Use multiple initial guesses
         num_perturbation_for_ig: 8                  # [-] Number of perturbations for the initial guess
         r_max_for_ig: 1.0                           # [m] radius for the initial guess perturbation
+
+        # --- Frontier-Based Exploration (UAV: OFF) ---
+        # Exploration depends on the 2D occupancy pipeline (occ_2d_topic),
+        # which only runs for ground robots. Leave disabled for UAVs.
+        exploration.enabled: false

@@ -272,6 +272,67 @@ struct parameters {
   // Trajectory publishing parameters
   int trajectory_downsample_points{500};  // Number of points to downsample trajectory to
   double mpc_path_spacing{0.05};          // [m] Spacing between waypoints in MPC path
+
+  // Frontier-based exploration (ground robot only).
+  // Master toggle is `expl_enabled`. When enabled, mighty_node runs a frontier
+  // detector + persistent global frontier database on the published 2D occupancy
+  // grid (occ_2d_topic), and autonomously issues exploration goals via the same
+  // pathway as a manual term_goal. A manual term_goal preempts exploration; the
+  // robot resumes exploration after the manual goal is reached.
+  bool   expl_enabled{false};
+  double expl_select_rate_hz{1.0};
+  double expl_default_goal_z{0.0};
+  // Detector
+  int    expl_cluster_min_cells{6};
+  int    expl_border_margin_cells{2};
+  int    expl_obstacle_clearance_cells{1};
+  double expl_robot_snap_radius_m{1.0};
+  // ESDF-based obstacle clearance for frontier centroids. Frontiers whose
+  // centroid is within this distance of any obstacle (per the 2D ESDF) are
+  // dropped and existing records are invalidated. Set to 0 (or no ESDF
+  // available) to disable. Meters.
+  double expl_min_obstacle_distance_m{0.0};
+  // Optional axis-aligned exploration bounds (world frame). Frontier seeds
+  // outside the box are dropped, so the robot only receives goals inside it.
+  bool   expl_bounds_enabled{false};
+  double expl_bounds_min_x{-50.0};
+  double expl_bounds_max_x{ 50.0};
+  double expl_bounds_min_y{-50.0};
+  double expl_bounds_max_y{ 50.0};
+  // Utility weights
+  double expl_w_size{1.0};
+  double expl_w_dist{2.0};
+  double expl_w_info{1.0};
+  double expl_w_revisit{0.5};
+  double expl_w_heading{0.3};
+  double expl_size_ref_m2{5.0};
+  double expl_dist_ref_m{25.0};
+  double expl_sensor_radius_m{5.0};
+  double expl_goal_select_threshold{-1.0e9};
+  // Manager / lifecycle
+  double expl_merge_radius_m{1.0};
+  double expl_centroid_ema_alpha{0.5};
+  double expl_visit_radius_m{2.0};
+  double expl_visit_dwell_sec{1.0};
+  int    expl_verify_radius_cells{2};
+  int    expl_max_frontiers{1000};
+  int    expl_unreachable_consec_thresh{5};
+  // Persistent visited bitmap (suppresses re-detection of revisited frontiers)
+  double expl_visited_map_center_x{0.0};
+  double expl_visited_map_center_y{0.0};
+  double expl_visited_map_width_m{100.0};
+  double expl_visited_map_height_m{100.0};
+  double expl_visited_map_resolution_m{0.15};
+  bool   expl_publish_visited_map{true};
+  // When true, fuse persistent visited_map_ values into UNKNOWN cells of the
+  // freshly received local OccupancyGrid before it is consumed by HGP / the
+  // local optimizer / the frontier detector. This makes revisited regions
+  // immediately come back with their last-known FREE/OCCUPIED state instead
+  // of one-frame UNKNOWN flicker. Static-environment only — re-introduces
+  // stale OCCUPIED for moving obstacles that have since left.
+  bool   expl_fuse_persistent_into_local{true};
+  // Visualization
+  bool   expl_publish_markers{true};
 };
 
 struct BasisConverter {

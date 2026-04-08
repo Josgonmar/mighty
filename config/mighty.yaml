@@ -290,3 +290,8 @@ mighty_node:
         use_benchmark: true                             # [-] Enable benchmarking data logging
         file_path: ""                                   # Path to save benchmark CSV
         use_only_global_planner: false                  # [-] Use only global planner for benchmarking
+
+        # --- Frontier-Based Exploration (UAV: OFF) ---
+        # Exploration depends on the 2D occupancy pipeline (occ_2d_topic),
+        # which only runs for ground robots. Leave disabled for UAVs.
+        exploration.enabled: false

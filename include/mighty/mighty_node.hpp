@@ -40,6 +40,14 @@
 #include "mighty/mighty.hpp"
 #include "mighty/mighty_type.hpp"
 
+// Frontier exploration (ground robot only). These are forward-declared in the
+// header to keep build dependencies minimal — full headers are included in
+// mighty_node.cpp.
+class FrontierDetector;
+class FrontierManager;
+class VisitedMap;
+struct FrontierRecord;
+
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -104,6 +112,11 @@ class MIGHTY_NODE : public rclcpp::Node {
   void trajCallback(const dynus_interfaces::msg::DynTraj::SharedPtr msg);
   void stateCallback(const dynus_interfaces::msg::State::SharedPtr msg);
   void terminalGoalCallback(const geometry_msgs::msg::PoseStamped& msg);
+  // Internal entry point used by both the public terminalGoalCallback (sets
+  // manual_goal_active_) and the exploration loop (does not).
+  void terminalGoalCallbackImpl(const geometry_msgs::msg::PoseStamped& msg, bool from_user);
+  // Frontier exploration goal-selection loop, runs at expl_select_rate_hz.
+  void exploreSelectCallback();
   void lookaheadPointCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
   void mapCallback(const sensor_msgs::msg::PointCloud2::ConstPtr& pcl2ptr_map_ros,
                    const sensor_msgs::msg::PointCloud2::ConstPtr& pcl2ptr_unk_ros);
@@ -131,7 +144,6 @@ class MIGHTY_NODE : public rclcpp::Node {
   void clearMarkerArray(
       visualization_msgs::msg::MarkerArray& path_marker,
       rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher);
-  void clearMarkerActualTraj();
   void runSim();
   void printComputationTime(bool result);
   void recordData(bool result);
@@ -166,6 +178,10 @@ class MIGHTY_NODE : public rclcpp::Node {
   void publishStaticPushPoints();
   void publishLocalGlobalPath();
   void publishVelocityInText(const Eigen::Vector3d& position, double velocity);
+  // Frontier exploration visualization
+  void publishFrontierMarkers();
+  void publishExplorationCurrentGoal(const FrontierRecord& r);
+  void publishVisitedMap();
 
   // Timers for callback
   rclcpp::TimerBase::SharedPtr timer_replanning_;
@@ -216,7 +232,7 @@ class MIGHTY_NODE : public rclcpp::Node {
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_current_state_;
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pub_goal_reached_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_setpoint_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_actual_traj_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_actual_traj_;
   rclcpp::Publisher<dynus_interfaces::msg::YawOutput>::SharedPtr pub_yaw_output_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_fov_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_cp_;
@@ -250,6 +266,38 @@ class MIGHTY_NODE : public rclcpp::Node {
   // Binary 2D occupancy subscription (ground robot only)
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr sub_occ_2d_;
   std::shared_ptr<const class OccGrid2D> occ_grid_2d_;
+
+  // Frontier exploration (ground robot only). Detector + persistent global
+  // frontier database. See plan: /home/kkondo/.claude/plans/snazzy-moseying-donut.md
+  std::unique_ptr<FrontierDetector> frontier_detector_;
+  std::unique_ptr<FrontierManager>  frontier_manager_;
+  // Persistent "ever-observed" bitmap. Suppresses re-detection of frontiers
+  // along the seam where the sliding mapper window re-blanks revisited
+  // areas to UNKNOWN. Owned and updated here, queried by frontier_detector_.
+  std::unique_ptr<VisitedMap>       visited_map_;
+  bool     exploration_active_     = false;  // we issued the current goal
+  bool     manual_goal_active_     = false;  // user issued the current goal
+  uint64_t current_explore_id_     = 0;
+  int      unreachable_consec_count_ = 0;
+  rclcpp::TimerBase::SharedPtr timer_explore_select_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_frontiers_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_explore_current_goal_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr pub_visited_map_;
+  // Wall-clock seconds of the last successful publishVisitedMap() call.
+  // Used to throttle the (potentially large) tristate-grid publish to ~1 Hz
+  // — RViz only needs occasional updates because the persistent map only
+  // grows incrementally and `transient_local` QoS replays the latest snapshot
+  // to late subscribers.
+  double last_visited_publish_t_ = 0.0;
+
+  // Wall-clock seconds of the last visualization publish in replanCallback.
+  // The replan loop runs at 100 Hz which is fine for control but floods RViz
+  // (especially for traj_committed_colored, hgp_path_marker, and the other
+  // multi-KB MarkerArrays). RViz drops messages when the publish rate exceeds
+  // its processing capacity, showing "some messages were lost" warnings.
+  // We throttle the entire viz block to ~20 Hz (every 50 ms) — plenty smooth
+  // visually, ~5x cheaper to render, no message loss.
+  double last_replan_viz_publish_t_ = 0.0;
 
   // Visualization
   visualization_msgs::msg::MarkerArray hgp_path_marker_;
@@ -321,7 +369,6 @@ class MIGHTY_NODE : public rclcpp::Node {
   vec_E<Polyhedron<3>> poly_safe_;
   std::vector<state> goal_setpoints_;
   std::vector<std::vector<state>> list_subopt_goal_setpoints_;
-  int actual_traj_id_ = 0;
 
   // Yaw Optimization Debugging
   std::vector<double> optimal_yaw_sequence_;
@@ -343,12 +390,20 @@ class MIGHTY_NODE : public rclcpp::Node {
   // Flags
   bool state_initialized_ = false;           // State initialized
   bool replan_timer_started_ = false;        // Replan timer started
-  bool publish_actual_traj_called_ = false;  // Publish actual trajectory called
   bool use_benchmark_ = false;               // Use benchmark
 
-  // Actual trajectory variables for ground robots
-  Eigen::Vector3d actual_traj_prev_pos_;
-  double actual_traj_prev_time_;
+  // Actual-trajectory history for visualization (sando-style: a single
+  // persistent LINE_STRIP marker built from a bounded history of past states,
+  // colored by speed). Replaces the legacy "publish one ARROW marker per
+  // sample" approach which leaked thousands of markers into RViz and lost
+  // them frequently because the topic was a single Marker (not MarkerArray).
+  std::vector<state> actual_traj_hist_;
+  bool actual_traj_initialized_ = false;
+  Eigen::Vector3d actual_traj_prev_pos_{0.0, 0.0, 0.0};
+  double actual_traj_prev_time_ = 0.0;
+  size_t actual_traj_max_hist_       = 4000;  // max stored states
+  size_t actual_traj_max_points_vis_ = 300;   // max points shown in RViz after downsampling
+  double actual_traj_line_width_     = 0.15;  // meters
 
   int last_subopt_count_{0};  // tracks how many subopt strips we drew last time
 
