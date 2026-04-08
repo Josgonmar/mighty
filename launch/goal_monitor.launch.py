@@ -1,3 +1,11 @@
+# /* ----------------------------------------------------------------------------
+#  * Copyright 2025, Kota Kondo, Aerospace Controls Laboratory
+#  * Massachusetts Institute of Technology
+#  * All Rights Reserved
+#  * Authors: Kota Kondo, et al.
+#  * See LICENSE file for the license information
+#  * -------------------------------------------------------------------------- */
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
@@ -30,6 +38,11 @@ def generate_launch_description():
         default_value='10.0',
         description='Circle formation radius'
     )
+    use_ground_robot_arg = DeclareLaunchArgument(
+        'use_ground_robot',
+        default_value='false',
+        description='Ground robot mode (sets goal z to 0.2 instead of 1.0)'
+    )
 
     def launch_setup(context):
         prefix = LaunchConfiguration('agent_prefix').perform(context)
@@ -37,6 +50,7 @@ def generate_launch_description():
         goal_tolerance = LaunchConfiguration('goal_tolerance').perform(context)
         num_agents = int(LaunchConfiguration('num_agents').perform(context))
         radius = float(LaunchConfiguration('radius').perform(context))
+        use_ground_robot = LaunchConfiguration('use_ground_robot').perform(context)
 
         namespaces = [f'{prefix}{i:02d}' for i in range(1, num_agents + 1)]
 
@@ -52,6 +66,7 @@ def generate_launch_description():
                     parameters=[{
                         'goal_tolerance': float(goal_tolerance),
                         'use_hardware': use_hardware.lower() in ('true', '1'),
+                        'use_ground_robot': use_ground_robot.lower() in ('true', '1'),
                         'num_agents': num_agents,
                         'radius': radius,
                     }]
@@ -63,6 +78,7 @@ def generate_launch_description():
         goal_tol_arg,
         agent_prefix_arg,
         use_hardware_arg,
+        use_ground_robot_arg,
         num_agents_arg,
         radius_arg,
         OpaqueFunction(function=launch_setup),

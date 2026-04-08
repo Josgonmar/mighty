@@ -2,7 +2,7 @@
 
 If you like this project, please consider starring ⭐ the repo!
 
-**Submitted to the IEEE Robotics and Automation Letters (RA-L)**
+**Accepted to the IEEE Robotics and Automation Letters (RA-L)**
 
 | **Trajectory** | **Forest** |
 | ------------------------- | ------------------------- |
@@ -156,12 +156,12 @@ cd mighty_ws/src/mighty
 ```
 
 This automated script will:
-- ✅ Install ROS 2 Humble (if not already installed)
-- ✅ Install all system dependencies
-- ✅ Import all repositories from `mighty.repos` at tested commits
-- ✅ Build DecompROS2, Livox-SDK2, and livox_ros_driver2
-- ✅ Build MIGHTY and all ROS dependencies
-- ✅ Configure your `~/.bashrc` for future use
+- Install ROS 2 Humble (if not already installed)
+- Install all system dependencies
+- Import all repositories from `mighty.repos` at tested commits
+- Build DecompROS2, Livox-SDK2, and livox_ros_driver2
+- Build MIGHTY and all ROS dependencies
+- Configure your `~/.bashrc` for future use
 
 **Notes:**
 - You'll be prompted for sudo password once at the start
