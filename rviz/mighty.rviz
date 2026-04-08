@@ -162,6 +162,19 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: /tf_axis
           Value: false
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: Formation Edges
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /formation_viz
+          Value: true
         - Class: rviz_default_plugins/MarkerArray
           Enabled: true
           Name: Dynamic Obstacles GT

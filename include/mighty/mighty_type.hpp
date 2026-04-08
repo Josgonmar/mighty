@@ -10,6 +10,7 @@
 
 #include <algorithm>  // for std::clamp
 #include <iostream>
+#include <limits>     // for std::numeric_limits in dynTraj::getHorizon
 #include <memory>
 #include <vector>
 
@@ -51,6 +52,13 @@ struct parameters {
   double sim_frame_offset_qy{0.0};
   double sim_frame_offset_qz{0.0};
   double sim_frame_offset_qw{1.0};
+
+  // Formation flight (per-agent membership + desired pairwise offsets)
+  bool use_formation{false};
+  double formation_weight{0.0};
+  std::vector<double> formation_self_offset{0.0, 0.0, 0.0};   // δ_i (length 3)
+  std::vector<int64_t> formation_neighbor_ids;                // neighbor agent IDs
+  std::vector<double> formation_neighbor_offsets;             // flat 3*N: δ_ij
 
   // Flight mode
   std::string flight_mode;
@@ -1234,6 +1242,47 @@ struct dynTraj {
     Eigen::Vector3d v1 = velocity(t - dt);
     Eigen::Vector3d v2 = velocity(t + dt);
     return (v2 - v1) / (2 * dt);
+  }
+
+  /// Return [t_min, t_max] over which this trajectory is actually defined.
+  ///
+  /// `Piecewise` reports its breakpoint range — the only mode used by /trajs
+  /// from other agents at the moment, since `publishOwnTraj()` sends mode="pwp".
+  /// `Quintic` uses the explicit `poly_start_time`/`poly_end_time` fields.
+  /// `Analytic` returns an "infinite" range — analytic expressions are valid
+  /// for all t (or at least the caller has no better information than that).
+  ///
+  /// `has_horizon` is false only for the "uninitialized Quintic" case where
+  /// poly_start_time == poly_end_time == 0. Callers can use that signal to
+  /// fall back to "evaluate everywhere" behavior.
+  inline void getHorizon(double& t_min, double& t_max, bool& has_horizon) const {
+    switch (mode) {
+      case Mode::Piecewise:
+        if (!pwp.times.empty()) {
+          t_min = pwp.times.front();
+          t_max = pwp.times.back();
+          has_horizon = (t_max > t_min);
+          return;
+        }
+        break;
+      case Mode::Quintic:
+        if (poly_end_time > poly_start_time) {
+          t_min = poly_start_time;
+          t_max = poly_end_time;
+          has_horizon = true;
+          return;
+        }
+        break;
+      case Mode::Analytic:
+        // Analytic expressions are defined everywhere; report no clamp.
+        t_min = -std::numeric_limits<double>::infinity();
+        t_max = std::numeric_limits<double>::infinity();
+        has_horizon = true;
+        return;
+    }
+    t_min = 0.0;
+    t_max = 0.0;
+    has_horizon = false;
   }
 
   static const char* modeName(dynTraj::Mode m) {

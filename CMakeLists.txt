@@ -156,6 +156,7 @@ install(PROGRAMS
   benchmarking/unc_benchmark_node.py
   scripts/repub_rviz_2Dgoal.py
   scripts/frame_align_publisher.py
+  scripts/formation_viz_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -182,6 +183,24 @@ if(BUILD_TESTING)
     src/mighty/frontier_manager.cpp)
   ament_target_dependencies(test_frontier_manager
     rclcpp Eigen3 nav_msgs)
+
+  ament_add_gtest(test_gradient_check
+    src/test/test_gradient_check.cpp
+    src/mighty/lbfgs_solver.cpp
+    src/mighty/lbfgs_solver_utils.cpp)
+  ament_target_dependencies(test_gradient_check
+    rclcpp example_interfaces dynus_interfaces visualization_msgs Eigen3
+    decomp_ros_msgs sensor_msgs std_msgs decomp_rviz_plugins decomp_test_node
+    tf2_geometry_msgs)
+
+  ament_add_gtest(test_formation_cost
+    src/test/test_formation_cost.cpp
+    src/mighty/lbfgs_solver.cpp
+    src/mighty/lbfgs_solver_utils.cpp)
+  ament_target_dependencies(test_formation_cost
+    rclcpp example_interfaces dynus_interfaces visualization_msgs Eigen3
+    decomp_ros_msgs sensor_msgs std_msgs decomp_rviz_plugins decomp_test_node
+    tf2_geometry_msgs)
 endif()
 
 ament_package()

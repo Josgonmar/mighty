@@ -60,6 +60,18 @@ def generate_launch_description():
     twist_topic_arg = DeclareLaunchArgument('twist_topic', default_value='twist',
         description='Twist topic for Vicon/mocap state converter (e.g., mocap/twist)')
 
+    # Formation flight (empty string = use config default)
+    use_formation_arg = DeclareLaunchArgument('use_formation', default_value='',
+        description='Override use_formation (empty = use config default)')
+    formation_weight_arg = DeclareLaunchArgument('formation_weight', default_value='',
+        description='Override formation_weight (empty = use config default)')
+    formation_self_offset_arg = DeclareLaunchArgument('formation_self_offset', default_value='',
+        description='Comma-separated per-agent offset "dx,dy,dz" (empty = use config default)')
+    formation_neighbor_ids_arg = DeclareLaunchArgument('formation_neighbor_ids', default_value='',
+        description='Comma-separated neighbor IDs "1,2,3" (empty = use config default)')
+    formation_neighbor_offsets_arg = DeclareLaunchArgument('formation_neighbor_offsets', default_value='',
+        description='Comma-separated flat 3*N offsets "dx1,dy1,dz1,dx2,dy2,dz2,..." (empty = use config default)')
+
     # Need to be the same as simulartor.launch.py
     map_size_x_arg = DeclareLaunchArgument('map_size_x', default_value='20.0')
     map_size_y_arg = DeclareLaunchArgument('map_size_y', default_value='20.0')
@@ -153,6 +165,25 @@ def generate_launch_description():
             parameters['sim_frame_offset_qz'] = float(sim_frame_offset_qz_str)
         if sim_frame_offset_qw_str:
             parameters['sim_frame_offset_qw'] = float(sim_frame_offset_qw_str)
+
+        # Formation flight overrides (empty launch arg means "use config default")
+        use_formation_str = LaunchConfiguration('use_formation').perform(context)
+        formation_weight_str = LaunchConfiguration('formation_weight').perform(context)
+        formation_self_offset_str = LaunchConfiguration('formation_self_offset').perform(context)
+        formation_neighbor_ids_str = LaunchConfiguration('formation_neighbor_ids').perform(context)
+        formation_neighbor_offsets_str = LaunchConfiguration('formation_neighbor_offsets').perform(context)
+        if use_formation_str:
+            parameters['use_formation'] = convert_str_to_bool(use_formation_str)
+        if formation_weight_str:
+            parameters['formation_weight'] = float(formation_weight_str)
+        if formation_self_offset_str:
+            parameters['formation_self_offset'] = [float(v) for v in formation_self_offset_str.split(',')]
+        if formation_neighbor_ids_str:
+            # rclcpp's IntegerArray parameter requires int64, and empty strings
+            # must become an empty list (not [0]).
+            parameters['formation_neighbor_ids'] = [int(v) for v in formation_neighbor_ids_str.split(',') if v != '']
+        if formation_neighbor_offsets_str:
+            parameters['formation_neighbor_offsets'] = [float(v) for v in formation_neighbor_offsets_str.split(',') if v != '']
 
         # Lidar topic remapping for hardware vs simulation
         lidar_point_cloud_topic = 'livox/lidar' if use_hardware else 'mid360_PointCloud2'
@@ -384,5 +415,10 @@ def generate_launch_description():
         sim_frame_offset_qz_arg,
         sim_frame_offset_qw_arg,
         twist_topic_arg,
+        use_formation_arg,
+        formation_weight_arg,
+        formation_self_offset_arg,
+        formation_neighbor_ids_arg,
+        formation_neighbor_offsets_arg,
         OpaqueFunction(function=launch_setup)
     ])

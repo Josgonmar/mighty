@@ -609,6 +609,11 @@ void SolverLBFGS::initializeSolver(const planner_params_t& params) {
   esdf_weight_ = params.esdf_weight;
   esdf_d_safe_ = params.esdf_d_safe;
 
+  // Formation flight (parallel arrays — id k corresponds to offset k)
+  formation_weight_ = params.formation_weight;
+  formation_neighbor_ids_ = params.formation_neighbor_ids;
+  formation_offsets_ = params.formation_offsets;
+
   // Spline degree and derived constants
   degree_ = params.spline_degree;
   assert(degree_ == 3 || degree_ == 5);
@@ -637,7 +642,7 @@ double SolverLBFGS::centralDiff(const VecXd& z, const VecXd& d, double eps_base)
   return (fp - fm) / (2.0 * eps);
 }
 
-void SolverLBFGS::checkGradDirectional(const VecXd& z0, int num_dirs, double eps, unsigned seed) {
+double SolverLBFGS::checkGradDirectional(const VecXd& z0, int num_dirs, double eps, unsigned seed) {
   std::mt19937 rng(seed);
   std::normal_distribution<double> N(0.0, 1.0);
 
@@ -667,9 +672,11 @@ void SolverLBFGS::checkGradDirectional(const VecXd& z0, int num_dirs, double eps
     if (rel > 1e-3)
       printf("\033[1;31m [dir %d] fd=%.6f ad=%.6f rel_err=%.6f \033[0m\n", k, fd, ad, rel);
   }
+  return max_rel_err;
 }
 
-void SolverLBFGS::checkGradCoordinates(const VecXd& z0, int max_coords, double eps, unsigned seed) {
+double SolverLBFGS::checkGradCoordinates(const VecXd& z0, int max_coords, double eps,
+                                         unsigned seed) {
   VecXd g(z0.size());
   // (void)evaluateObjectiveAndGradient(z0, g);
   (void)evaluateObjectiveAndGradientFused(z0, g);
@@ -697,6 +704,7 @@ void SolverLBFGS::checkGradCoordinates(const VecXd& z0, int max_coords, double e
       printf("\033[1;31m [idx %d] g_fd=%.6f g_ad=%.6f abs_err=%.6f rel_err=%.6f \033[0m\n", i, g_fd,
              g_ad, abserr, rel);
   }
+  return worst;
 }
 
 // Build corridor-shortest polyline and overwrite global_wps_.
@@ -838,6 +846,10 @@ void SolverLBFGS::prepareSolverForReplan(double t0, const vec_Vec3f& global_wps,
   obstacles_.clear();
   obstacles_ = obstacles;
 
+  // Pick out formation neighbors from the same trajectory list (filtered by id
+  // and is_agent). Same shallow shared_ptr snapshot policy as `obstacles_`.
+  setFormationNeighbors(obstacles_);
+
   // Create A_stat_ and b_stat_ from safe corridor
   if (use_for_safe_path) {
     setStaticConstraintsForSafePath(safe_corridor);
@@ -963,6 +975,32 @@ void SolverLBFGS::prepareSolverForReplan(double t0, const vec_Vec3f& global_wps,
   // wherever you have a valid z (e.g., right before starting L-BFGS)
   // checkGradDirectional(z0, /*num_dirs=*/8, /*eps=*/1e-5, /*seed=*/42);
   // checkGradCoordinates(z0, /*max_coords=*/256, /*eps=*/1e-5, /*seed=*/43);
+}
+
+// -----------------------------------------------------------------------------
+
+void SolverLBFGS::setFormationNeighbors(const std::vector<std::shared_ptr<dynTraj>>& trajs) {
+  // Shallow shared_ptr snapshot. Same single-threaded contract as the
+  // `obstacles_` snapshot above: do NOT call prepareSolverForReplan()
+  // concurrently with optimize() on the same SolverLBFGS instance.
+  formation_neighbors_.clear();
+  formation_offsets_resolved_.clear();
+  if (formation_weight_ <= 0.0 || formation_neighbor_ids_.empty()) return;
+
+  formation_neighbors_.reserve(formation_neighbor_ids_.size());
+  formation_offsets_resolved_.reserve(formation_neighbor_ids_.size());
+
+  for (size_t k = 0; k < formation_neighbor_ids_.size(); ++k) {
+    const int want_id = formation_neighbor_ids_[k];
+    for (const auto& t : trajs) {
+      if (!t || !t->is_agent || t->id != want_id) continue;
+      formation_neighbors_.push_back(t);
+      formation_offsets_resolved_.push_back(formation_offsets_[k]);
+      break;  // first match wins
+    }
+  }
+  // formation_neighbors_ may be shorter than configured (some neighbors may
+  // not have broadcast yet). J_form sums only over what's present.
 }
 
 // -----------------------------------------------------------------------------
@@ -2044,6 +2082,7 @@ double SolverLBFGS::evaluateObjectiveAndGradientFused(const Eigen::VectorXd& z,
   double J_tilt = 0.0;
   double J_thr = 0.0;
   double J_esdf = 0.0;
+  double J_form = 0.0;
 
   // Grad accumulators in (P,V,A,T) space
   std::vector<Vec3> gP(knots, Vec3::Zero());
@@ -2492,6 +2531,15 @@ double SolverLBFGS::evaluateObjectiveAndGradientFused(const Eigen::VectorXd& z,
 
       for (const auto& obs : obstacles_) {
         if (!obs) continue;
+        // Formation neighbors are handled by J_form below — they should NOT
+        // also be treated as collision-avoidance obstacles, otherwise J_dyn
+        // and J_form fight each other (J_dyn pushes apart, J_form pulls
+        // toward δ_ij). When the broadcast trajectory is short, pwp.eval()
+        // clamps to the END position, which can drift inside Cw and trigger
+        // a runaway hinge cost (observed: fopt → 4×10^7 for one agent in the
+        // 5-drone star sim). Skipping is_agent here keeps J_dyn focused on
+        // *true* dynamic obstacles while J_form handles agent-agent spacing.
+        if (formation_weight_ > 0.0 && obs->is_agent) continue;
 
         for (int i = 0; i < N; ++i) {
           // Midpoint in (0,1) → avoids endpoints by construction
@@ -2582,6 +2630,137 @@ double SolverLBFGS::evaluateObjectiveAndGradientFused(const Eigen::VectorXd& z,
     }
   }
 
+  // ---- Formation flight (fused): keep-offset to neighboring agents ----
+  // Cost J_form = Σ_j ∫₀ᵀ ‖(p_i(t) − p_j(t)) − δ_ij‖² dt
+  // Same midpoint sampling and time chain rule as J_dyn above; the only
+  // differences are: no hinge (always active), gradient factor is +2 instead
+  // of −6h², and the per-sample cost is e² rather than h³.
+  // Note: each agent independently penalizes its own pair-error; mutual
+  // double-counting is intentional and matches the J_dyn protocol.
+  if (formation_weight_ > 0.0 && !formation_neighbors_.empty()) {
+    const int N = std::max(1, (num_dyn_obst_samples_ > 0 ? num_dyn_obst_samples_ : 10));
+    const double total_T = std::accumulate(T.begin(), T.end(), 0.0);
+
+    if (total_T > 0.0) {
+      const double dt = total_T / static_cast<double>(N);
+
+      // Absolute segment edges: [t0_, t0_+T0, t0_+T0+T1, ...]
+      std::vector<double> edges(M + 1, t0_);
+      for (int i = 1; i <= M; ++i) edges[i] = edges[i - 1] + T[i - 1];
+
+      std::vector<std::vector<Vec3>> gCP_form(M, std::vector<Vec3>(num_cp_, Vec3::Zero()));
+      std::vector<double> gT_form(M, 0.0);
+
+      constexpr double kEpsT = 1e-9;
+      constexpr double kEpsTau = 1e-9;
+
+      for (size_t kk = 0; kk < formation_neighbors_.size(); ++kk) {
+        const auto& nbr = formation_neighbors_[kk];
+        if (!nbr) continue;
+        const Vec3& delta_ij = formation_offsets_resolved_[kk];
+
+        // Skip samples outside the neighbor's broadcast horizon. dynTraj's
+        // PWP evaluator clamps t past times.back() to the END position; the
+        // Quintic evaluator extrapolates the polynomial. Either way, sampling
+        // past the broadcast window asks the planner to formation-track a
+        // ghost — the result blows up J_form, pushes fopt past
+        // par_.fopt_threshold, and the agent never gets a plan. The
+        // Piecewise mode (used by /trajs from other agents) needs `pwp.times`
+        // for its real horizon, *not* poly_start_time/poly_end_time which
+        // stay at default 0 for this branch — getHorizon() handles that
+        // dispatch.
+        double nbr_t_min, nbr_t_max;
+        bool nbr_has_horizon;
+        nbr->getHorizon(nbr_t_min, nbr_t_max, nbr_has_horizon);
+
+        for (int i = 0; i < N; ++i) {
+          const double u = (i + 0.5) / static_cast<double>(N);
+          double t_abs = t0_ + u * total_T;
+          t_abs = std::min(std::max(t_abs, edges.front() + kEpsT), edges.back() - kEpsT);
+
+          if (nbr_has_horizon && (t_abs < nbr_t_min || t_abs > nbr_t_max)) continue;
+
+          int s = int(std::upper_bound(edges.begin(), edges.end(), t_abs) - edges.begin()) - 1;
+          s = std::clamp(s, 0, M - 1);
+
+          const double Ts = T[s];
+          if (Ts <= 0.0) continue;
+
+          double tau = (t_abs - edges[s]) / Ts;
+          tau = std::min(std::max(tau, kEpsTau), 1.0 - kEpsTau);
+
+          // Bernstein basis and derivative wrt tau (degree-aware) — identical to J_dyn
+          std::vector<double> Bd(num_cp_), dBd(num_cp_);
+          if (degree_ == 3) {
+            bernstein3(tau, Bd.data());
+            double b2t[3];
+            bernstein2(tau, b2t);
+            dBd[0] = -3.0 * b2t[0];
+            dBd[1] = 3.0 * (b2t[0] - b2t[1]);
+            dBd[2] = 3.0 * (b2t[1] - b2t[2]);
+            dBd[3] = 3.0 * b2t[2];
+          } else {
+            double B5t[6], dB5t[6];
+            evalBernstein5(tau, B5t, dB5t);
+            for (int j = 0; j < 6; ++j) {
+              Bd[j] = B5t[j];
+              dBd[j] = dB5t[j];
+            }
+          }
+
+          // Robot position p_i(t)
+          Vec3 p = Vec3::Zero();
+          for (int j = 0; j < num_cp_; ++j) p += Bd[j] * CP[s][j];
+
+          // Neighbor position & velocity (relies on dynTraj internal extrapolation)
+          const Vec3 pj = nbr->eval(t_abs);
+          const Vec3 vj = nbr->velocity(t_abs);
+
+          // Error e = (p_i − p_j) − δ_ij
+          const Vec3 e = (p - pj) - delta_ij;
+          const double e2 = e.squaredNorm();
+
+          // ∂‖e‖²/∂p_i = 2 e  (no hinge)
+          const double factor = 2.0;
+
+          // (1) CP path: ∂J/∂CP = (∂J/∂p) · (∂p/∂CP) · dt
+          for (int j = 0; j < num_cp_; ++j) gCP_form[s][j] += (factor * dt * Bd[j]) * e;
+
+          // (2) τ(T) path: ∂J/∂T_r via τ
+          Vec3 dp_dtau = Vec3::Zero();
+          for (int j = 0; j < num_cp_; ++j) dp_dtau += dBd[j] * CP[s][j];
+          const double term_tau = e.dot(dp_dtau);
+
+          for (int r = 0; r < M; ++r) {
+            const double is_lt = (r < s) ? 1.0 : 0.0;
+            const double is_eq = (r == s) ? 1.0 : 0.0;
+            const double dtau_dTr = (u - is_lt - tau * is_eq) / Ts;
+            gT_form[r] += (factor * dt) * term_tau * dtau_dTr;
+          }
+
+          // (3) Neighbor-motion time path: ∂t_abs/∂T_r = u, ∂e/∂t = −v_j
+          //     ⇒ contribution to ∂‖e‖²/∂T_r is 2 e · (−v_j) · u = factor · (−e·v_j) · u
+          const double inner_nbr = -e.dot(vj);
+          for (int r = 0; r < M; ++r) gT_form[r] += (factor * dt) * inner_nbr * u;
+
+          // (4) dt scaling: dt = total_T/N ⇒ ∂dt/∂T_r = 1/N
+          for (int r = 0; r < M; ++r) gT_form[r] += e2 / static_cast<double>(N);
+
+          // accumulate objective
+          J_form += e2 * dt;
+        }
+      }
+
+      // Push CP(T) chain into (gP,gV,gA) and merge explicit time-path pieces
+      for (int s = 0; s < M; ++s) {
+        std::vector<Vec3> tmp(num_cp_, Vec3::Zero());
+        for (int j = 0; j < num_cp_; ++j) tmp[j] = formation_weight_ * gCP_form[s][j];
+        accumulate_cp_to_pvaT(s, tmp, V, A, T, gP, gV, gA, gT, degree_);
+        gT[s] += formation_weight_ * gT_form[s];
+      }
+    }
+  }
+
   // --- NEW: prox-to-initial P regularizer ------------------------------------
   // Penalize squared distance from the initial P (first reconstruct).
   // Only adds to gP (no dependency on V, A, or T).
@@ -2654,7 +2833,8 @@ double SolverLBFGS::evaluateObjectiveAndGradientFused(const Eigen::VectorXd& z,
                    jerk_weight_ * J_jerk + stat_weight_ * J_stat + esdf_weight_ * J_esdf +
                    dyn_constr_vel_weight_ * J_vel + dyn_constr_acc_weight_ * J_acc +
                    dyn_constr_jerk_weight_ * J_jmax + dyn_constr_bodyrate_weight_ * J_om +
-                   dyn_constr_tilt_weight_ * J_tilt + dyn_constr_thrust_weight_ * J_thr;
+                   dyn_constr_tilt_weight_ * J_tilt + dyn_constr_thrust_weight_ * J_thr +
+                   formation_weight_ * J_form;
 
   // In 2D mode: zero z-gradient components for all interior knots.
   // This prevents L-BFGS from moving any z-related decision variable.

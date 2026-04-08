@@ -81,6 +81,13 @@ struct planner_params_t {
   bool use_esdf_cost = false;     // ESDF distance cost (ground robot)
   double esdf_weight = 0.0;       // ESDF cost weight
   double esdf_d_safe = 1.0;       // [m] safety distance threshold
+  // Formation flight: keeps the ego agent at desired offsets to neighboring
+  // agents on /trajs throughout the trajectory (cost J_form). Neighbors are
+  // matched by `dynTraj::id` against `formation_neighbor_ids`; their desired
+  // offsets δ_ij live in `formation_offsets` (parallel to ids).
+  double formation_weight = 0.0;
+  std::vector<int> formation_neighbor_ids;
+  std::vector<Eigen::Vector3d> formation_offsets;
 };
 
 /** @brief L-BFGS-based local trajectory optimizer for Hermite quintic splines.
@@ -522,9 +529,48 @@ class SolverLBFGS {
     return initial_guess_wps_;
   }
 
+  // -----------------------------------------------------------------------------
+
+  /** @brief Numerically stable central-difference directional derivative.
+   *  @return  (f(z + eps*d) - f(z - eps*d)) / (2*eps), with eps scaled by ||d||.
+   */
+  double centralDiff(const VecXd& z, const VecXd& d, double eps_base);
+
+  /** @brief Verify analytic gradient against finite differences in random directions.
+   *  @return  Worst observed relative error across all sampled directions.
+   */
+  double checkGradDirectional(const VecXd& z0, int num_dirs, double eps, unsigned seed);
+
+  /** @brief Verify analytic gradient coordinate-by-coordinate against finite differences.
+   *  @return  Worst observed relative error across all sampled coordinates.
+   */
+  double checkGradCoordinates(const VecXd& z0, int max_coords, double eps, unsigned seed);
+
+  // -----------------------------------------------------------------------------
+
+  /** @brief Snapshot formation neighbor pointers from a trajectory list.
+   *
+   *  Walks @p trajs and picks any entry whose `is_agent` is true and whose
+   *  `id` matches one of the configured `formation_neighbor_ids_`. Stores
+   *  matched shared_ptrs in `formation_neighbors_` and the corresponding
+   *  configured offset in `formation_offsets_resolved_` (parallel arrays).
+   *
+   *  Shallow shared_ptr snapshot — same single-threaded contract as
+   *  `obstacles_`: must not be called concurrently with `optimize()` on the
+   *  same solver instance.
+   */
+  void setFormationNeighbors(const std::vector<std::shared_ptr<dynTraj>>& trajs);
+
  private:
   // obstacles
   std::vector<std::shared_ptr<dynTraj>> obstacles_;
+
+  // Formation flight (configured at init, snapshotted per replan)
+  double formation_weight_{0.0};
+  std::vector<int> formation_neighbor_ids_;
+  std::vector<Eigen::Vector3d> formation_offsets_;
+  std::vector<std::shared_ptr<dynTraj>> formation_neighbors_;     // per-replan snapshot
+  std::vector<Eigen::Vector3d> formation_offsets_resolved_;        // parallel to formation_neighbors_
 
   /**
    * @brief Static wrapper for evaluateObjectiveAndGradient.
@@ -584,14 +630,6 @@ class SolverLBFGS {
 
   // -----------------------------------------------------------------------------
 
-  double centralDiff(const VecXd& z, const VecXd& d, double eps_base);
-
-  void checkGradDirectional(const VecXd& z0, int num_dirs /*=8*/, double eps /*=1e-6*/,
-                            unsigned seed /*=0*/);
-
-  void checkGradCoordinates(const VecXd& z0, int max_coords, double eps, unsigned seed);
-
- private:
   /// Find which segment index s contains time t_i
   int findSegment(double ti, const std::vector<double>& T) const;
 

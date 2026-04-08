@@ -115,6 +115,9 @@ class MIGHTY_NODE : public rclcpp::Node {
   // Internal entry point used by both the public terminalGoalCallback (sets
   // manual_goal_active_) and the exploration loop (does not).
   void terminalGoalCallbackImpl(const geometry_msgs::msg::PoseStamped& msg, bool from_user);
+  // Shared swarm goal subscriber: applies formation_self_offset and forwards
+  // through terminalGoalCallbackImpl. Only created when use_formation: true.
+  void swarmGoalCallback(const geometry_msgs::msg::PoseStamped& msg);
   // Frontier exploration goal-selection loop, runs at expl_select_rate_hz.
   void exploreSelectCallback();
   void lookaheadPointCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
@@ -247,6 +250,7 @@ class MIGHTY_NODE : public rclcpp::Node {
   rclcpp::Subscription<dynus_interfaces::msg::DynTraj>::SharedPtr sub_predicted_traj_;
   rclcpp::Subscription<dynus_interfaces::msg::State>::SharedPtr sub_state_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_terminal_goal_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_swarm_goal_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_fake_sim_occupancy_map_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr sub_lookahead_point_;
 

@@ -55,6 +55,21 @@ MIGHTY::MIGHTY(parameters par) : par_(par) {
   planner_params_.esdf_d_safe = par_.esdf_d_safe;
   planner_params_.spline_degree = par_.spline_degree;
 
+  // Formation flight: copy weights and configured neighbor (id, offset) pairs
+  planner_params_.formation_weight = par_.use_formation ? par_.formation_weight : 0.0;
+  planner_params_.formation_neighbor_ids.clear();
+  planner_params_.formation_offsets.clear();
+  if (par_.use_formation) {
+    for (size_t k = 0; k < par_.formation_neighbor_ids.size(); ++k) {
+      planner_params_.formation_neighbor_ids.push_back(
+          static_cast<int>(par_.formation_neighbor_ids[k]));
+      planner_params_.formation_offsets.emplace_back(
+          par_.formation_neighbor_offsets[3 * k + 0],
+          par_.formation_neighbor_offsets[3 * k + 1],
+          par_.formation_neighbor_offsets[3 * k + 2]);
+    }
+  }
+
   // Set up the L-BFGS parameters
   lbfgs_params_.mem_size = 256;
   lbfgs_params_.min_step = 1.0e-32;

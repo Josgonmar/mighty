@@ -163,6 +163,18 @@ MIGHTY_NODE::MIGHTY_NODE() : Node("mighty_node") {
   sub_terminal_goal_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
       "term_goal", critical_qos,
       std::bind(&MIGHTY_NODE::terminalGoalCallback, this, std::placeholders::_1));
+  // Shared swarm goal: a single /swarm_goal publication is fanned out to each
+  // agent's local terminal-goal pin via formation_self_offset, so the whole
+  // swarm can be commanded with one PoseStamped message.
+  if (par_.use_formation) {
+    sub_swarm_goal_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/swarm_goal", critical_qos,
+        std::bind(&MIGHTY_NODE::swarmGoalCallback, this, std::placeholders::_1));
+    RCLCPP_INFO(this->get_logger(),
+                "Subscribing to /swarm_goal with self offset [%.2f %.2f %.2f]",
+                par_.formation_self_offset[0], par_.formation_self_offset[1],
+                par_.formation_self_offset[2]);
+  }
   sub_lookahead_point_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
       "lookahead_point", 10,
       std::bind(&MIGHTY_NODE::lookaheadPointCallback, this, std::placeholders::_1));
@@ -368,6 +380,13 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("sim_frame_offset_qy", 0.0);
   this->declare_parameter("sim_frame_offset_qz", 0.0);
   this->declare_parameter("sim_frame_offset_qw", 1.0);
+
+  // Formation flight
+  this->declare_parameter("use_formation", false);
+  this->declare_parameter("formation_weight", 0.0);
+  this->declare_parameter("formation_self_offset", std::vector<double>{0.0, 0.0, 0.0});
+  this->declare_parameter("formation_neighbor_ids", std::vector<int64_t>{});
+  this->declare_parameter("formation_neighbor_offsets", std::vector<double>{});
 
   // Flight mode
   this->declare_parameter("flight_mode", "terminal_goal");
@@ -646,6 +665,30 @@ void MIGHTY_NODE::setParameters() {
   par_.sim_frame_offset_qy = this->get_parameter("sim_frame_offset_qy").as_double();
   par_.sim_frame_offset_qz = this->get_parameter("sim_frame_offset_qz").as_double();
   par_.sim_frame_offset_qw = this->get_parameter("sim_frame_offset_qw").as_double();
+
+  // Formation flight
+  par_.use_formation = this->get_parameter("use_formation").as_bool();
+  par_.formation_weight = this->get_parameter("formation_weight").as_double();
+  par_.formation_self_offset = this->get_parameter("formation_self_offset").as_double_array();
+  par_.formation_neighbor_ids = this->get_parameter("formation_neighbor_ids").as_integer_array();
+  par_.formation_neighbor_offsets =
+      this->get_parameter("formation_neighbor_offsets").as_double_array();
+  if (par_.use_formation) {
+    if (par_.formation_self_offset.size() != 3) {
+      RCLCPP_FATAL(this->get_logger(),
+                   "formation_self_offset must have length 3 (got %zu); shutting down",
+                   par_.formation_self_offset.size());
+      rclcpp::shutdown();
+    }
+    if (par_.formation_neighbor_offsets.size() != 3 * par_.formation_neighbor_ids.size()) {
+      RCLCPP_FATAL(this->get_logger(),
+                   "formation_neighbor_offsets length (%zu) must be 3 * "
+                   "formation_neighbor_ids length (%zu); shutting down",
+                   par_.formation_neighbor_offsets.size(),
+                   par_.formation_neighbor_ids.size());
+      rclcpp::shutdown();
+    }
+  }
 
   // Build the sim frame offset matrix
   {
@@ -1409,6 +1452,23 @@ void MIGHTY_NODE::replanCallback() {
  */
 void MIGHTY_NODE::terminalGoalCallback(const geometry_msgs::msg::PoseStamped& msg) {
   terminalGoalCallbackImpl(msg, /*from_user=*/true);
+}
+
+/**
+ * @brief Apply the per-agent formation offset to a shared /swarm_goal
+ *        publication and forward to the standard goal-pin path.
+ *
+ *        Routing through terminalGoalCallbackImpl with from_user=true means
+ *        the swarm goal preempts exploration just like a manual goal would,
+ *        and the existing reconstruct() pin (P[M_]=xf_) automatically becomes
+ *        G_swarm + δ_i for each agent.
+ */
+void MIGHTY_NODE::swarmGoalCallback(const geometry_msgs::msg::PoseStamped& msg) {
+  geometry_msgs::msg::PoseStamped offset_msg = msg;
+  offset_msg.pose.position.x += par_.formation_self_offset[0];
+  offset_msg.pose.position.y += par_.formation_self_offset[1];
+  offset_msg.pose.position.z += par_.formation_self_offset[2];
+  terminalGoalCallbackImpl(offset_msg, /*from_user=*/true);
 }
 
 /**

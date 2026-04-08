@@ -41,6 +41,17 @@ mighty_node:
         sim_frame_offset_qz: 0.0                        # [-]
         sim_frame_offset_qw: 1.0                        # [-]
 
+        # --- Formation flight ---
+        # When use_formation: true, this agent penalizes deviation from a desired
+        # offset to each listed neighbor throughout its trajectory (cost J_form),
+        # and also subscribes to /swarm_goal (shared topic) to apply formation_self_offset
+        # before pinning its terminal waypoint.
+        use_formation: false                            # [-] Master switch
+        formation_weight: 0.0                           # [-] L-BFGS weight on J_form
+        formation_self_offset: [0.0, 0.0, 0.0]          # [m] δ_i: this agent's offset from /swarm_goal
+        formation_neighbor_ids: []                      # [int] IDs of agents to keep formation with
+        formation_neighbor_offsets: []                  # [m] flat 3*N: δ_ij for each neighbor in same order as ids
+
         # --- Vehicle Dynamic Limits ---
         v_max: 1.0                                      # [m/s]   Max velocity
         a_max: 5.0                                     # [m/s^2] Max acceleration
