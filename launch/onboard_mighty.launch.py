@@ -185,6 +185,11 @@ def generate_launch_description():
         if formation_neighbor_offsets_str:
             parameters['formation_neighbor_offsets'] = [float(v) for v in formation_neighbor_offsets_str.split(',') if v != '']
 
+        # rclpy can't infer the type of empty lists in dict-form parameters
+        # (raises "got '()' of type 'tuple'"). Drop them so the C++ node falls
+        # back to its declared default.
+        parameters = {k: v for k, v in parameters.items() if not (isinstance(v, list) and len(v) == 0)}
+
         # Lidar topic remapping for hardware vs simulation
         lidar_point_cloud_topic = 'livox/lidar' if use_hardware else 'mid360_PointCloud2'
 
