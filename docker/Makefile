@@ -46,16 +46,16 @@ build-no-cache:
 	$(BUILD_ARGS) \
 	--build-arg DUMMY=`date +%s` -t mighty .
 
-# Default run (multiagent with 10 agents)
-run:
+# Run single-agent interactive mode (manual 2D Goal Pose via RViz2)
+# Usage: make run-interactive
+run-interactive:
 	$(XHOST_CMD) && docker run $(PLATFORM_FLAG) -it \
 				$(GPU_FLAGS) \
 				--privileged \
 				$(DISPLAY_ENV) \
 				$(NETWORK_FLAG) \
 				--env="QT_X11_NO_MITSHM=1" \
-				-e MODE=multiagent \
-				-e NUM_AGENTS=10 \
+				-e MODE=interactive \
 				--rm mighty
 
 # Run multiagent simulation with custom number of agents
