@@ -25,14 +25,16 @@ If you like this project, please consider starring ⭐ the repo!
 MIGHTY: Hermite Spline-based Efficient Trajectory Planning is available at [https://arxiv.org/abs/2511.10822](https://arxiv.org/abs/2511.10822)!
 
 ```bibtex
-@article{kondo2025mighty,
-      title={MIGHTY: Hermite Spline-based Efficient Trajectory Planning},
-      author={Kota Kondo and Yuwei Wu and Vijay Kumar and Jonathan P. How},
-      year={2025},
-      eprint={2511.10822},
-      archivePrefix={arXiv},
-      primaryClass={cs.RO},
-      url={https://arxiv.org/abs/2511.10822},
+@ARTICLE{kondo2026mighty,
+  author={Kondo, Kota and Wu, Yuwei and Kumar, Vijay and How, Jonathan P.},
+  journal={IEEE Robotics and Automation Letters}, 
+  title={MIGHTY: Hermite Spline-based Efficient Trajectory Planning}, 
+  year={2026},
+  volume={},
+  number={},
+  pages={1-8},
+  keywords={Anisotropic;Central Processing Unit;Filters;Radio access networks;Regional area networks;Location awareness;Mobile communication;Communication systems;High frequency;Indoor environment;Aerial Systems: Perception and Autonomy;Motion and Path Planning;Trajectory Optimization;Hermite Splines;Unmanned Aerial Vehicles},
+  doi={10.1109/LRA.2026.3681187}
 }
 ```
 
