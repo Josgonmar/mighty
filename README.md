@@ -4,7 +4,7 @@ If you like this project, please consider starring ⭐ the repo!
 
 **Accepted to the IEEE Robotics and Automation Letters (RA-L)**
 
-<video src="https://github.com/user-attachments/assets/4014f7d2-e285-4ce6-8a23-c34f65bec33f" width="100%" autoplay loop muted playsinline controls></video>
+<video src="https://github.com/user-attachments/assets/a5127ce3-6662-4b5f-8ca6-2f84f38fddf8" width="100%" autoplay loop muted playsinline controls></video>
 
 | **Trajectory** | **Forest** |
 | ------------------------- | ------------------------- |
