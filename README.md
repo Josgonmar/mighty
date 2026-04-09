@@ -94,6 +94,11 @@ make build-no-cache
 
 **4. Run Simulations**
 
+> **GPU errors?** On Linux, GPU support (NVIDIA) is enabled by default. If you get GPU-related errors (e.g., no NVIDIA driver or runtime), disable it with `GPU=false`:
+> ```bash
+> make run-interactive GPU=false
+> ```
+
 ```bash
 # Single-agent interactive simulation (click goals in RViz2 with "2D Goal Pose")
 make run-interactive
