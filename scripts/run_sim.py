@@ -790,7 +790,7 @@ def main():
         print(f"[INFO] Launching simulation...")
         env = os.environ.copy()
         env['SETUP_BASH'] = str(setup_bash)
-        subprocess.run(['tmuxp', 'load', temp_yaml_path], env=env, check=True)
+        subprocess.run(['tmuxp', 'load', '-d', temp_yaml_path], env=env, check=True)
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Failed to launch simulation: {e}", file=sys.stderr)
         sys.exit(1)
