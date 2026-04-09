@@ -62,26 +62,13 @@ echo "============================================="
 echo "STEP 1: Fixing Repository Issues"
 echo "============================================="
 
-# Fix duplicate ROS 2 repository entries
-if [ -f /etc/apt/sources.list.d/ros2-latest.list ] && [ -f /etc/apt/sources.list.d/ros2.list ]; then
-    echo "Removing duplicate ROS 2 repository..."
-    sudo rm -f /etc/apt/sources.list.d/ros2-latest.list
-fi
-
-# Fix expired ROS 2 GPG key
-echo "Updating ROS 2 GPG key..."
-sudo rm -f /usr/share/keyrings/ros-archive-keyring.gpg
-sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-# Disable problematic repositories temporarily
-if [ -f /etc/apt/sources.list.d/github-cli.list ]; then
-    echo "Temporarily disabling GitHub CLI repository..."
-    sudo mv /etc/apt/sources.list.d/github-cli.list /etc/apt/sources.list.d/github-cli.list.disabled || true
-fi
-
-if [ -f /etc/apt/sources.list.d/spotify.list ]; then
-    echo "Temporarily disabling Spotify repository..."
-    sudo mv /etc/apt/sources.list.d/spotify.list /etc/apt/sources.list.d/spotify.list.disabled || true
+# Only add ROS 2 repository if none exists — never overwrite existing setup
+if ls /etc/apt/sources.list.d/ros2* > /dev/null 2>&1; then
+    echo "ROS 2 repository already configured, keeping existing setup."
+else
+    echo "No ROS 2 repository found, adding..."
+    sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
 fi
 
 # ============================================
@@ -91,7 +78,6 @@ echo ""
 echo "============================================="
 echo "STEP 2: System Updates and Basic Software"
 echo "============================================="
-sudo rm -rf /var/lib/apt/lists/*
 sudo apt update
 sudo apt upgrade -y
 sudo apt-get install -q -y --no-install-recommends \
@@ -119,14 +105,7 @@ if [ ! -d "/opt/ros/humble" ]; then
     echo -e "\n" | sudo add-apt-repository universe
     sudo apt update && sudo apt install -y curl
 
-    # Ensure ROS 2 GPG key is properly set up
-    sudo rm -f /usr/share/keyrings/ros-archive-keyring.gpg
-    sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-    # Add ROS 2 repository (remove old one first to avoid duplicates)
-    sudo rm -f /etc/apt/sources.list.d/ros2*.list
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
+    # ROS 2 repo already set up in Step 1 — just update
     sudo apt update
     sudo apt install -y ros-humble-desktop
     sudo apt install -y ros-dev-tools
