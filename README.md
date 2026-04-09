@@ -56,13 +56,23 @@ and follow the setup instructions in the README of that branch.
 
 ## Installation
 
-MIGHTY has been tested on Ubuntu 22.04 with ROS 2 Humble.
+MIGHTY has been tested on Ubuntu 22.04 with ROS 2 Humble. Three installation methods are available:
 
-### Docker Installation (Recommended)
+| Method | Platform | Notes |
+|--------|----------|-------|
+| [Docker (Linux)](#docker-installation-linux) | Linux | Uses Docker Engine (apt install, **not** Docker Desktop) |
+| [Docker (Mac)](#docker-installation-mac) | macOS (Apple Silicon / Intel) | Uses Docker Desktop; Xpra for browser-based visualization |
+| [Native (Linux)](#native-installation-linux) | Ubuntu 22.04 | Best for development and hardware deployment |
 
-**1. Install Docker**
+---
 
-Follow the [official Docker installation guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/).
+### Docker Installation (Linux)
+
+**1. Install Docker Engine**
+
+Install Docker Engine via apt — do **not** use Docker Desktop on Linux as it may cause issues.
+
+Follow the [official guide (Install using the apt repository)](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository).
 
 **2. Clone the Repository**
 
@@ -143,7 +153,7 @@ In `run-interactive` mode, send goals from the RViz2 toolbar:
 
 ---
 
-### Running on Mac (Apple Silicon / Intel)
+### Docker Installation (Mac)
 
 MIGHTY runs on macOS via Docker with [Xpra](https://xpra.org/) for browser-based visualization. Xpra is installed inside the Docker image automatically — you do **not** need to install Xpra, X11, or XQuartz on your Mac.
 
@@ -219,7 +229,7 @@ To send a goal manually (in `run-mac-interactive` mode):
 
 ---
 
-### Native Installation
+### Native Installation (Linux)
 
 **1. Clone the Repository**
 
