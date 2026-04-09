@@ -180,7 +180,7 @@ if [ ! -d "$MIGHTY_WS/src/mighty" ]; then
     cd "$MIGHTY_WS/src"
     git clone https://github.com/mit-acl/mighty.git
     cd mighty
-    git switch 6237c6524df309e50e34b5501cbef70b2e1c6d80
+    git checkout v0.0.1
 else
     echo "MIGHTY already exists, updating..."
     cd "$MIGHTY_WS/src/mighty"

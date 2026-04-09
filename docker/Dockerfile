@@ -38,14 +38,14 @@ ENV DECOMP_WS=${CODE_DIR}/decomp_ws
 ENV LIVOX_WS=${CODE_DIR}/livox_ws
 ENV LIVOX_SDK_DIR=${CODE_DIR}/Livox-SDK2
 
-# Clone MIGHTY at a pinned commit (override with --build-arg MIGHTY_COMMIT=<hash>).
+# Clone MIGHTY at a pinned release tag (override with --build-arg MIGHTY_VERSION=<tag>).
 # All other dep versions live in mighty.repos — single source of truth.
 RUN mkdir -p ${MIGHTY_WS}/src
 WORKDIR ${MIGHTY_WS}/src
 ARG DUMMY=unknown
-ARG MIGHTY_COMMIT=f05957180b4d4c2cdb3c392957464372f35e3f6d
+ARG MIGHTY_VERSION=v0.0.1
 RUN DUMMY=${DUMMY} git clone https://github.com/mit-acl/mighty.git && \
-    cd mighty && git checkout ${MIGHTY_COMMIT}
+    cd mighty && git checkout ${MIGHTY_VERSION}
 
 # Import every dependency (pinned in mighty.repos)
 WORKDIR ${MIGHTY_WS}
