@@ -4,6 +4,8 @@ If you like this project, please consider starring ⭐ the repo!
 
 **Accepted to the IEEE Robotics and Automation Letters (RA-L)**
 
+<video src="https://github.com/user-attachments/assets/4014f7d2-e285-4ce6-8a23-c34f65bec33f" width="100%" autoplay loop muted playsinline controls></video>
+
 | **Trajectory** | **Forest** |
 | ------------------------- | ------------------------- |
 <a target="_blank" href="https://youtu.be/Pvb-VPUdLvg"><img src="./imgs/mighty_gifs_complex_benchmarks.gif" width="360" height="240" alt="Complex Benchmarks"></a> | <a target="_blank" href="https://youtu.be/Pvb-VPUdLvg"><img src="./imgs/mighty_gifs_hard_forest.gif" width="360" height="240" alt="Static Forest"></a> |
