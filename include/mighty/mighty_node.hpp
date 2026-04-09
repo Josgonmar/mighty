@@ -303,6 +303,12 @@ class MIGHTY_NODE : public rclcpp::Node {
   // visually, ~5x cheaper to render, no message loss.
   double last_replan_viz_publish_t_ = 0.0;
 
+  // Same throttle for actual_traj. publishActualTraj() is called from
+  // stateCallback which fires at the state publisher's rate (100 Hz from
+  // fake_sim), and the persistent LINE_STRIP marker grows large enough that
+  // RViz drops messages at that rate too.
+  double last_actual_traj_publish_t_ = 0.0;
+
   // Visualization
   visualization_msgs::msg::MarkerArray hgp_path_marker_;
   visualization_msgs::msg::MarkerArray original_hgp_path_marker_;

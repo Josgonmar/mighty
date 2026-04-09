@@ -47,7 +47,7 @@ RUN apt install -y  ros-${ROS_DISTRO}-desktop \
 # Install MIGHTY and dependencies
 ##########################################
 # Version control: commits from mighty.repos
-ARG MIGHTY_VERSION=d1fedda5c0591ed29456f77cdde8edea8010cd63
+ARG MIGHTY_VERSION=f05957180b4d4c2cdb3c392957464372f35e3f6d
 ARG ACL_MAPPING_VERSION=c3b27af1549ef1ab549acbe1143bf810a900da95
 ARG DYNUS_INTERFACES_VERSION=c43bcec6d4b67c6f8a8baabb1b2f8c1ba8b919d1
 ARG GAZEBO_ROS_PKGS_VERSION=ed1f7b886971d7bf898e6e0f59c622df929c0521

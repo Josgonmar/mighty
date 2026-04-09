@@ -88,6 +88,7 @@ struct parameters {
   double free_start_factor;
   bool use_free_goal;
   double free_goal_factor;
+  bool relocate_occupied_goal;
 
   // LOS post processing parameters
   int los_cells;
@@ -171,6 +172,8 @@ struct parameters {
   double fov_visual_depth;
   double fov_visual_x_deg;
   double fov_visual_y_deg;
+  bool use_sphere_sensing;
+  double sphere_sensing_radius;
 
   // number of segments parameters
   double max_dist_vertexes;  // [m] Maximum distance between two consecutive vertexes

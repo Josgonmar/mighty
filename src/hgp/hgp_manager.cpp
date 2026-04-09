@@ -1235,6 +1235,21 @@ void HGPManager::findClosestFreePoint(const Vec3f& point, Vec3f& closest_free_po
   mtx_map_util_.unlock();
 }
 
+void HGPManager::findClosestNonOccupiedPoint(const Vec3f& point,
+                                             Vec3f& closest_non_occupied_point) {
+  // Match checkIfPointOccupied: prefer the planning map (post-inflation) when
+  // it exists, otherwise fall back to the base map. Callers may invoke this
+  // outside of a planning cycle (e.g. from a goal callback).
+  mtx_map_util_.lock();
+  const auto& mu = map_util_for_planning_ ? map_util_for_planning_ : map_util_;
+  if (mu) {
+    mu->findClosestNonOccupiedPoint(point, closest_non_occupied_point);
+  } else {
+    closest_non_occupied_point = point;
+  }
+  mtx_map_util_.unlock();
+}
+
 int HGPManager::countUnknownCells() const { return map_util_for_planning_->countUnknownCells(); }
 
 int HGPManager::getTotalNumCells() const { return map_util_for_planning_->getTotalNumCells(); }
