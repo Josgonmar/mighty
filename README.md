@@ -247,6 +247,7 @@ This automated script will:
 **Notes:**
 - You'll be prompted for sudo password once at the start
 - Safe to re-run if something fails (skips already-installed components)
+- The script appends ROS 2 sourcing, workspace sourcing, and environment variables to `~/.bashrc`
 - After completion, run `source ~/.bashrc` to use MIGHTY immediately
 
 **3. Run Simulations**
