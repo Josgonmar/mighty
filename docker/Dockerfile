@@ -43,7 +43,7 @@ ENV LIVOX_SDK_DIR=${CODE_DIR}/Livox-SDK2
 RUN mkdir -p ${MIGHTY_WS}/src
 WORKDIR ${MIGHTY_WS}/src
 ARG DUMMY=unknown
-ARG MIGHTY_VERSION=v0.0.2
+ARG MIGHTY_VERSION=v0.0.3
 RUN DUMMY=${DUMMY} git clone https://github.com/mit-acl/mighty.git && \
     cd mighty && git checkout ${MIGHTY_VERSION}
 
