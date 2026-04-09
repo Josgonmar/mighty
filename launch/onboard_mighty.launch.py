@@ -316,7 +316,8 @@ def generate_launch_description():
                                  "odom_topic": odom_topic,
                                  "odom_frame_id": odom_frame_id,
                                  "base_frame_id": base_frame_id,
-                                 "map_frame_id": map_frame_id}],
+                                 "map_frame_id": map_frame_id,
+                                 "visual_level": 1}],
                     output='screen',
         )
 
@@ -339,6 +340,8 @@ def generate_launch_description():
                 {'map/x_size': map_size_x},
                 {'map/y_size': map_size_y},
                 {'map/z_size': map_size_z},
+                {'use_sphere_sensing': bool(parameters.get('use_sphere_sensing', False))},
+                {'sphere_sensing_radius': float(parameters.get('sphere_sensing_radius', 5.0))},
                 camera_file
             ],
             remappings=[

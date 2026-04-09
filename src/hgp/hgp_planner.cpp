@@ -8,7 +8,29 @@
 
 #include <hgp/hgp_planner.hpp>
 
+#include <fstream>
+#include <iomanip>
+
 using namespace termcolor;
+
+// Per-call HGP debug log. Opened lazily on first use; writes voxel start/goal,
+// whether the goal was clamped (outside the map), the resulting path length,
+// and the path's first / last waypoint. Used to diagnose backward-pointing
+// global paths around x=10.
+namespace {
+std::ofstream& hgp_debug_log() {
+  static std::ofstream s;
+  if (!s.is_open()) {
+    s.open("/tmp/mighty_hgp_debug.log", std::ios::out | std::ios::trunc);
+    if (s.is_open()) {
+      s << std::fixed << std::setprecision(4);
+      s << "# event | start_w | goal_w | start_int | goal_int_orig | goal_int_clamped | dim | origin | path_size | path_front_w | path_back_w\n";
+      s.flush();
+    }
+  }
+  return s;
+}
+}  // namespace
 
 HGPPlanner::HGPPlanner(std::string global_planner, bool verbose, double v_max, double a_max,
                        double j_max, int hgp_timeout_duration_ms, double w_unknown, double w_align,
@@ -366,6 +388,9 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
   Veci<3> goal_int = map_util_->floatToInt(goal);
   const Veci<3> dim = map_util_->getDim();
 
+  // Save original (pre-clamp) goal voxel for debug logging.
+  const Veci<3> goal_int_orig = goal_int;
+
   // If goal is outside the map, clamp to nearest boundary cell
   if (map_util_->isOutside(goal_int)) {
     for (int i = 0; i < 3; ++i) goal_int(i) = std::clamp(goal_int(i), 0, dim(i) - 1);
@@ -502,6 +527,38 @@ bool HGPPlanner::plan(const Vecf<3>& start, const Vecf<3>& start_vel, const Vecf
     auto tmp = raw_path_;
     cleanUpPath(tmp);
     path_ = tmp;
+  }
+
+  // Debug log: dump full HGP plan call (input start/goal voxels, clamping,
+  // raw_path size, processed path size, path endpoints, map metadata).
+  if (auto& s = hgp_debug_log(); s.is_open()) {
+    auto fmtv = [](const Vecf<3>& v) {
+      std::ostringstream o;
+      o << std::fixed << std::setprecision(3)
+        << v.x() << "," << v.y() << "," << v.z();
+      return o.str();
+    };
+    auto fmti = [](const Veci<3>& v) {
+      std::ostringstream o;
+      o << v.x() << "," << v.y() << "," << v.z();
+      return o.str();
+    };
+    s << "HGP"
+      << " start_w=" << fmtv(start)
+      << " goal_w=" << fmtv(goal)
+      << " start_int=" << fmti(start_int)
+      << " goal_int_orig=" << fmti(goal_int_orig)
+      << " goal_int_clamped=" << fmti(goal_int)
+      << " dim=" << fmti(dim)
+      << " origin=" << fmtv(map_util_->getOrigin())
+      << " raw_n=" << raw_path_.size()
+      << " path_n=" << path_.size();
+    if (!path_.empty()) {
+      s << " front=" << fmtv(path_.front())
+        << " back=" << fmtv(path_.back());
+    }
+    s << "\n";
+    s.flush();
   }
 
   return true;

@@ -13,9 +13,43 @@
 #include <mighty/frontier_manager.hpp>
 #include <mighty/visited_map.hpp>
 
+#include <fstream>
+#include <iomanip>
+
 using namespace std::chrono_literals;
 
 namespace mighty {
+
+// Debug log: writes every published /goal and every received /term_goal to a
+// file so the dip-toward-origin bug can be analyzed offline. Set debug_log_file
+// to "" in the YAML to disable.
+namespace {
+double& debug_log_t0() {
+  static double t0 = 0.0;
+  return t0;
+}
+std::ofstream& debug_log_stream() {
+  static std::ofstream s;  // never closed; flushed on every write
+  return s;
+}
+void debug_log_open(const std::string& path) {
+  if (path.empty()) return;
+  auto& s = debug_log_stream();
+  if (!s.is_open()) {
+    s.open(path, std::ios::out | std::ios::trunc);
+    if (s.is_open()) {
+      s << std::fixed << std::setprecision(4);
+      s << "# t_rel_sec | event | px | py | pz | extra\n";
+      s.flush();
+    }
+  }
+}
+double debug_log_t(double now_sec) {
+  auto& t0 = debug_log_t0();
+  if (t0 == 0.0) t0 = now_sec;
+  return now_sec - t0;
+}
+}  // namespace
 
 // ----------------------------------------------------------------------------
 
@@ -415,6 +449,7 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("free_start_factor", 1.0);
   this->declare_parameter("use_free_goal", false);
   this->declare_parameter("free_goal_factor", 1.0);
+  this->declare_parameter("relocate_occupied_goal", true);
   this->declare_parameter("max_dist_vertexes", 5.0);
   this->declare_parameter("w_unknown", 1.0);
   this->declare_parameter("w_align", 60.0);
@@ -499,6 +534,8 @@ void MIGHTY_NODE::declareParameters() {
   this->declare_parameter("fov_visual_depth", 10.0);
   this->declare_parameter("fov_visual_x_deg", 10.0);
   this->declare_parameter("fov_visual_y_deg", 10.0);
+  this->declare_parameter("use_sphere_sensing", false);
+  this->declare_parameter("sphere_sensing_radius", 5.0);
 
   // Initial guess parameters
   this->declare_parameter("use_multiple_initial_guesses", true);
@@ -573,6 +610,7 @@ void MIGHTY_NODE::declareParameters() {
 
   // Debug flags
   this->declare_parameter("debug_verbose", false);
+  this->declare_parameter("debug_log_file", std::string(""));  // path to per-publish/per-term-goal log; "" disables
 
   // Ground robot control parameters
   this->declare_parameter("ground_robot_kx", 0.1);
@@ -730,6 +768,7 @@ void MIGHTY_NODE::setParameters() {
   par_.free_start_factor = this->get_parameter("free_start_factor").as_double();
   par_.use_free_goal = this->get_parameter("use_free_goal").as_bool();
   par_.free_goal_factor = this->get_parameter("free_goal_factor").as_double();
+  par_.relocate_occupied_goal = this->get_parameter("relocate_occupied_goal").as_bool();
   par_.max_dist_vertexes = this->get_parameter("max_dist_vertexes").as_double();
   par_.w_unknown = this->get_parameter("w_unknown").as_double();
   par_.w_align = this->get_parameter("w_align").as_double();
@@ -818,6 +857,8 @@ void MIGHTY_NODE::setParameters() {
   par_.fov_visual_depth = this->get_parameter("fov_visual_depth").as_double();
   par_.fov_visual_x_deg = this->get_parameter("fov_visual_x_deg").as_double();
   par_.fov_visual_y_deg = this->get_parameter("fov_visual_y_deg").as_double();
+  par_.use_sphere_sensing = this->get_parameter("use_sphere_sensing").as_bool();
+  par_.sphere_sensing_radius = this->get_parameter("sphere_sensing_radius").as_double();
 
   // Initial guess parameters
   par_.use_multiple_initial_guesses = this->get_parameter("use_multiple_initial_guesses").as_bool();
@@ -901,6 +942,13 @@ void MIGHTY_NODE::setParameters() {
 
   // Debug flags
   par_.debug_verbose = this->get_parameter("debug_verbose").as_bool();
+  {
+    auto path = this->get_parameter("debug_log_file").as_string();
+    debug_log_open(path);
+    if (!path.empty()) {
+      RCLCPP_INFO(this->get_logger(), "Debug log file: %s", path.c_str());
+    }
+  }
 
   // Ground robot control parameters
   par_.ground_robot_kx = this->get_parameter("ground_robot_kx").as_double();
@@ -1018,6 +1066,7 @@ void MIGHTY_NODE::printParameters() {
   RCLCPP_INFO(this->get_logger(), "Free Start Factor: %f", par_.free_start_factor);
   RCLCPP_INFO(this->get_logger(), "Use Free Goal?: %d", par_.use_free_goal);
   RCLCPP_INFO(this->get_logger(), "Free Goal Factor: %f", par_.free_goal_factor);
+  RCLCPP_INFO(this->get_logger(), "Relocate Occupied Goal?: %d", par_.relocate_occupied_goal);
   RCLCPP_INFO(this->get_logger(), "max_dist_vertexes: %f", par_.max_dist_vertexes);
   RCLCPP_INFO(this->get_logger(), "w_unknown: %f", par_.w_unknown);
   RCLCPP_INFO(this->get_logger(), "w_align: %f", par_.w_align);
@@ -1071,6 +1120,8 @@ void MIGHTY_NODE::printParameters() {
   RCLCPP_INFO(this->get_logger(), "FOV Visual Depth: %f", par_.fov_visual_depth);
   RCLCPP_INFO(this->get_logger(), "FOV Visual X Deg: %f", par_.fov_visual_x_deg);
   RCLCPP_INFO(this->get_logger(), "FOV Visual Y Deg: %f", par_.fov_visual_y_deg);
+  RCLCPP_INFO(this->get_logger(), "Use Sphere Sensing: %d", par_.use_sphere_sensing);
+  RCLCPP_INFO(this->get_logger(), "Sphere Sensing Radius: %f", par_.sphere_sensing_radius);
 
   // Initial guess parameters
   RCLCPP_INFO(this->get_logger(), "Use Multiple Initial Guesses: %d",
@@ -1300,7 +1351,17 @@ void MIGHTY_NODE::stateCallback(const dynus_interfaces::msg::State::SharedPtr ms
     timer_goal_->reset();
   }
 
-  if (par_.visual_level >= 1) publishActualTraj();
+  // Throttle actual_traj viz to ~20 Hz to match the replan viz throttle.
+  // stateCallback runs at 100 Hz (fake_sim publishes state every 10 ms) and
+  // the persistent LINE_STRIP marker is large enough that RViz drops
+  // messages with "some messages were lost" warnings without throttling.
+  if (par_.visual_level >= 1) {
+    const double t_now_actual = this->now().seconds();
+    if (t_now_actual - last_actual_traj_publish_t_ >= 0.05) {
+      publishActualTraj();
+      last_actual_traj_publish_t_ = t_now_actual;
+    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -1334,6 +1395,15 @@ void MIGHTY_NODE::replanCallback() {
   auto [replanning_result, hgp_result] =
       mighty_ptr_->replan(replanning_computation_time_, current_time);
 
+  // Republish the terminal goal marker so RViz tracks any in-replan
+  // relocation done by sanitizeTerminalGoal (e.g. when an obstacle gets
+  // sensed after the original click and the goal jumps to a clear cell).
+  if (par_.relocate_occupied_goal) {
+    state gterm_now;
+    mighty_ptr_->getGterm(gterm_now);
+    publishState(gterm_now, pub_point_G_term_);
+  }
+
   // Get computation time (used to find point A) - note this value is not updated in the replan
   // function
   if (replanning_result) {
@@ -1341,6 +1411,38 @@ void MIGHTY_NODE::replanCallback() {
     replanning_computation_time_ = this->now().seconds() - current_time;
     if (par_.debug_verbose)
       printf("Total Replanning: %f ms\n", replanning_computation_time_ * 1000.0);
+  }
+
+  // Debug log: dump global path + local trajectory endpoints on every replan
+  // so backward-planning bugs can be diagnosed offline.
+  if (auto& s = debug_log_stream(); s.is_open()) {
+    state cur, gterm, gsub, lA;
+    mighty_ptr_->getState(cur);
+    mighty_ptr_->getGterm(gterm);
+    mighty_ptr_->getG(gsub);
+    mighty_ptr_->getA(lA);
+    s << debug_log_t(this->now().seconds()) << " REPLAN"
+      << " ok=" << (replanning_result ? 1 : 0)
+      << " hgp=" << (hgp_result ? 1 : 0)
+      << " state=" << cur.pos.x() << "," << cur.pos.y() << "," << cur.pos.z()
+      << " A=" << lA.pos.x() << "," << lA.pos.y() << "," << lA.pos.z()
+      << " G=" << gsub.pos.x() << "," << gsub.pos.y() << "," << gsub.pos.z()
+      << " Gterm=" << gterm.pos.x() << "," << gterm.pos.y() << "," << gterm.pos.z()
+      << "\n";
+    if (hgp_result) {
+      vec_Vecf<3> gp;
+      mighty_ptr_->getGlobalPath(gp);
+      s << "  HGP_PATH n=" << gp.size();
+      auto dump = [&](size_t i) {
+        s << " [" << i << "]=" << gp[i].x() << "," << gp[i].y() << "," << gp[i].z();
+      };
+      if (gp.size() >= 1) dump(0);
+      if (gp.size() >= 2) dump(1);
+      if (gp.size() >= 3) dump(2);
+      if (gp.size() >= 4) dump(gp.size() - 1);
+      s << "\n";
+    }
+    s.flush();
   }
 
   // Frontier-unreachable detection: if the global planner consistently fails
@@ -1484,6 +1586,16 @@ void MIGHTY_NODE::terminalGoalCallbackImpl(const geometry_msgs::msg::PoseStamped
   goal_received_time_ = this->now();
   waiting_for_first_traj_ = true;
 
+  // Debug log: every received term_goal
+  if (auto& s = debug_log_stream(); s.is_open()) {
+    s << debug_log_t(this->now().seconds()) << " TERM_GOAL "
+      << msg.pose.position.x << " " << msg.pose.position.y << " " << msg.pose.position.z
+      << " from_user=" << (from_user ? 1 : 0)
+      << " frame=" << msg.header.frame_id
+      << "\n";
+    s.flush();
+  }
+
   if (from_user) {
     manual_goal_active_ = true;
     // A manual goal preempts any in-progress exploration goal.
@@ -1509,6 +1621,23 @@ void MIGHTY_NODE::terminalGoalCallbackImpl(const geometry_msgs::msg::PoseStamped
 
   // Set the terminal goal
   G_term.setPos(msg.pose.position.x, msg.pose.position.y, goal_z);
+
+  // If the goal lies in an occupied voxel, relocate it to the nearest
+  // free/unknown cell with ||drone_bbox|| clearance from the original point.
+  // The mutated G_term then flows into both the planner and the RViz marker.
+  if (par_.relocate_occupied_goal) {
+    if (!mighty_ptr_->sanitizeTerminalGoal(G_term)) {
+      // ERROR (not WARN) so it survives --log-level error in the launch file.
+      RCLCPP_ERROR(this->get_logger(),
+                   "Goal at (%.2f,%.2f,%.2f) is in occupied space and could not be "
+                   "relocated; ignoring.",
+                   msg.pose.position.x, msg.pose.position.y, goal_z);
+      return;
+    }
+    // Re-clamp z in case the BFS pushed the relocated goal out of bounds.
+    if (G_term.pos.z() < par_.z_min) G_term.pos.z() = par_.z_min;
+    if (G_term.pos.z() > par_.z_max) G_term.pos.z() = par_.z_max;
+  }
 
   // Update the terminal goal
   mighty_ptr_->setTerminalGoal(G_term);
@@ -2324,6 +2453,22 @@ void MIGHTY_NODE::publishGoal() {
     quadGoal.dyaw = next_goal.dyaw;
     pub_goal_->publish(quadGoal);
 
+    // Debug log: every published setpoint, with current state and plan front
+    // for context. Helps trace dip-toward-origin bugs.
+    if (auto& s = debug_log_stream(); s.is_open()) {
+      state cur, gterm, gsub;
+      mighty_ptr_->getState(cur);
+      mighty_ptr_->getGterm(gterm);
+      mighty_ptr_->getG(gsub);
+      s << debug_log_t(this->now().seconds()) << " GOAL "
+        << next_goal.pos.x() << " " << next_goal.pos.y() << " " << next_goal.pos.z()
+        << " state=" << cur.pos.x() << "," << cur.pos.y() << "," << cur.pos.z()
+        << " G=" << gsub.pos.x() << "," << gsub.pos.y() << "," << gsub.pos.z()
+        << " Gterm=" << gterm.pos.x() << "," << gterm.pos.y() << "," << gterm.pos.z()
+        << "\n";
+      s.flush();
+    }
+
     // Publish the goal (setpoint) for visualization
     if (par_.visual_level >= 1) publishState(next_goal, pub_setpoint_);
   }
@@ -2725,9 +2870,25 @@ void MIGHTY_NODE::constructFOVMarker() {
   marker_fov_.ns = "marker_fov";
   marker_fov_.id = marker_fov_id_++;
   marker_fov_.frame_locked = true;
-  marker_fov_.type = marker_fov_.LINE_LIST;
   marker_fov_.action = marker_fov_.ADD;
   marker_fov_.pose = mighty_utils::identityGeometryMsgsPose();
+
+  // Sphere sensing mode: render a translucent sphere instead of the camera frustum.
+  if (par_.use_sphere_sensing) {
+    marker_fov_.type = marker_fov_.SPHERE;
+    marker_fov_.points.clear();
+    const double diameter = 2.0 * par_.sphere_sensing_radius;
+    marker_fov_.scale.x = diameter;
+    marker_fov_.scale.y = diameter;
+    marker_fov_.scale.z = diameter;
+    marker_fov_.color.a = 0.15;
+    marker_fov_.color.r = 0.0;
+    marker_fov_.color.g = 1.0;
+    marker_fov_.color.b = 0.0;
+    return;
+  }
+
+  marker_fov_.type = marker_fov_.LINE_LIST;
 
   double delta_y = par_.fov_visual_depth * fabs(tan((par_.fov_visual_x_deg * M_PI / 180) / 2.0));
   double delta_z = par_.fov_visual_depth * fabs(tan((par_.fov_visual_y_deg * M_PI / 180) / 2.0));

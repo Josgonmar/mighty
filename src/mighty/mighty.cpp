@@ -243,8 +243,8 @@ bool MIGHTY::findAandAtime(state& A, double& A_time, double current_time,
   }
 
   // Check if A is within the map (especially for z)
-  if (A.pos[2] < par_.z_min || A.pos[2] > par_.z_max,
-      A.pos[0] < par_.x_min || A.pos[0] > par_.x_max,
+  if (A.pos[2] < par_.z_min || A.pos[2] > par_.z_max ||
+      A.pos[0] < par_.x_min || A.pos[0] > par_.x_max ||
       A.pos[1] < par_.y_min || A.pos[1] > par_.y_max) {
     printf("A (%f, %f, %f) is out of the map\n", A.pos[0], A.pos[1], A.pos[2]);
     return false;
@@ -511,6 +511,22 @@ std::tuple<bool, bool> MIGHTY::replan(double last_replaning_computation_time, do
   getGterm(local_G_term);
   getLastPlanState(last_plan_state);
 
+  // Re-run goal sanitization each replan: as the planning window slides
+  // forward and previously-unknown cells become observed, an occupied goal
+  // may only become detectable now. sanitizeTerminalGoal is a no-op when
+  // the goal is already free or unknown, so this is cheap in the common case.
+  if (par_.relocate_occupied_goal) {
+    state goal_before = local_G_term;
+    if (sanitizeTerminalGoal(local_G_term)) {
+      if ((local_G_term.pos - goal_before.pos).norm() > 1e-6) {
+        setGterm(local_G_term);  // persist the relocation for the next cycle
+      }
+    }
+    // If sanitize returned false, leave the stored G_term_ unchanged and
+    // let the planner try; the next sensor update may make a non-occupied
+    // cell available.
+  }
+
   // Check if we need to replan based on the distance to the terminal goal
   if (!needReplan(local_state, local_G_term, last_plan_state)) return std::make_tuple(false, false);
 
@@ -610,8 +626,17 @@ bool MIGHTY::generateGlobalPath(vec_Vecf<3>& global_path, double current_time,
   setA(local_A);
   setA_time(A_time);
 
-  // Compute G
+  // Compute G (writes the freshly-projected subgoal into the member G_)
   computeG(local_A, local_G_term, par_.horizon);
+
+  // Refresh local_G with the value computeG just wrote. The earlier getG() at
+  // the top of this function returned the previous replan's subgoal, which
+  // becomes stale the moment computeG updates G_. Without this re-read,
+  // solveHGP below would plan toward the *previous* subgoal — and right after
+  // a new term_goal is set (or a large G_term jump), the stale subgoal can
+  // point in the opposite direction of the new one, producing a brief
+  // backward HGP path.
+  getG(local_G);
 
   // Set up the HGP planner (since updateVmax() needs to be called after setupHGPPlanner, we use
   // v_max_ from the last replan)
@@ -1469,6 +1494,70 @@ void MIGHTY::yaw(double diff, state& next_goal) {
   next_goal.dyaw = dyaw_filtered_;
   next_goal.yaw = previous_yaw_ + dyaw_filtered_ * par_.dc;
   previous_yaw_ = next_goal.yaw;
+}
+
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief If the goal is inside an occupied voxel, relocate it to the nearest
+ *        free or unknown cell, then push outward along that direction by
+ *        ||drone_bbox|| so the new goal sits clear of the obstacle. No-op if
+ *        the goal is already non-occupied or if the map isn't ready yet.
+ */
+bool MIGHTY::sanitizeTerminalGoal(state& goal) {
+  // Map not initialized yet (e.g. very first goal at startup): trust the user.
+  if (!hgp_manager_.isMapInitialized()) return true;
+
+  // Already free or unknown: nothing to do.
+  if (!hgp_manager_.checkIfPointOccupied(goal.pos)) return true;
+
+  // BFS for the closest free/unknown cell.
+  Vec3f closest;
+  hgp_manager_.findClosestNonOccupiedPoint(goal.pos, closest);
+
+  // findClosestNonOccupiedPoint returns the input unchanged if it found nothing.
+  if ((closest - goal.pos).norm() < 1e-6) {
+    printf("[MIGHTY] sanitizeTerminalGoal: goal is occupied and no free/unknown "
+           "cell found within BFS budget; dropping goal.\n");
+    return false;
+  }
+
+  // Direction outward from the occupied goal toward free/unknown space.
+  const Vec3f dir = (closest - goal.pos).normalized();
+
+  // Required clearance from the original occupied point: ||drone_bbox||.
+  // drone_bbox is a [x,y,z] full-extent vector; using its norm gives the
+  // bounding-box diagonal as the safety margin.
+  double clearance = 0.0;
+  if (par_.drone_bbox.size() >= 3) {
+    clearance = std::sqrt(par_.drone_bbox[0] * par_.drone_bbox[0] +
+                          par_.drone_bbox[1] * par_.drone_bbox[1] +
+                          par_.drone_bbox[2] * par_.drone_bbox[2]);
+  }
+
+  Vec3f new_pos = goal.pos + dir * clearance;
+
+  // Safety loop: if pushing by `clearance` lands us back inside an obstacle
+  // (thin wall, etc.), keep walking outward by one resolution at a time.
+  // Cap iterations so we never spin forever.
+  const double step = par_.res > 0.0 ? par_.res : 0.1;
+  for (int i = 0; i < 20 && hgp_manager_.checkIfPointOccupied(new_pos); ++i) {
+    new_pos += dir * step;
+  }
+
+  if (hgp_manager_.checkIfPointOccupied(new_pos)) {
+    printf("[MIGHTY] sanitizeTerminalGoal: could not escape occupied region "
+           "after %d steps; dropping goal.\n", 20);
+    return false;
+  }
+
+  const Vec3f original = goal.pos;
+  goal.pos = new_pos;
+  printf("[MIGHTY] Goal relocated from (%.2f,%.2f,%.2f) to (%.2f,%.2f,%.2f) "
+         "(was inside occupied voxel, clearance=%.2f m)\n",
+         original.x(), original.y(), original.z(),
+         new_pos.x(), new_pos.y(), new_pos.z(), clearance);
+  return true;
 }
 
 // ----------------------------------------------------------------------------
