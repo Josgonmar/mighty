@@ -44,16 +44,6 @@ MIGHTY: Hermite Spline-based Efficient Trajectory Planning is available at [http
 
 The full video is available at [https://youtu.be/Pvb-VPUdLvg](https://youtu.be/Pvb-VPUdLvg).
 
-## Interactive Demo
-
-For an interactive demo of MIGHTY, please switch to the `interactive_demo` branch:
-```bash
-git checkout interactive_demo
-```
-and follow the setup instructions in the README of that branch.
-
-**Note:** When forking this repository, unselect "Copy the main branch only" to include the `interactive_demo` branch.
-
 ---
 
 ## Installation
