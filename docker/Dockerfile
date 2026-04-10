@@ -43,9 +43,8 @@ ENV LIVOX_SDK_DIR=${CODE_DIR}/Livox-SDK2
 RUN mkdir -p ${MIGHTY_WS}/src
 WORKDIR ${MIGHTY_WS}/src
 ARG DUMMY=unknown
-ARG MIGHTY_VERSION=v0.0.4
-RUN DUMMY=${DUMMY} git clone https://github.com/mit-acl/mighty.git && \
-    cd mighty && git checkout ${MIGHTY_VERSION}
+ARG MIGHTY_VERSION=v0.0.5
+RUN DUMMY=${DUMMY} git clone --depth 1 --branch ${MIGHTY_VERSION} https://github.com/mit-acl/mighty.git
 
 # Import every dependency (pinned in mighty.repos)
 WORKDIR ${MIGHTY_WS}

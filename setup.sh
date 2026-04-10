@@ -157,9 +157,7 @@ mkdir -p "$LIVOX_WS/src"
 if [ ! -d "$MIGHTY_WS/src/mighty" ]; then
     echo "Cloning MIGHTY..."
     cd "$MIGHTY_WS/src"
-    git clone https://github.com/mit-acl/mighty.git
-    cd mighty
-    git checkout v0.0.4
+    git clone --depth 1 --branch v0.0.5 https://github.com/mit-acl/mighty.git
 else
     echo "MIGHTY already exists, updating..."
     cd "$MIGHTY_WS/src/mighty"
