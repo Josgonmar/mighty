@@ -79,9 +79,7 @@ Follow the [official guide (Install using the apt repository)](https://docs.dock
 **2. Clone the Repository**
 
 ```bash
-mkdir -p ~/code/ws/src
-cd ~/code/ws/src
-git clone https://github.com/mit-acl/mighty.git
+git clone --depth 1 https://github.com/mit-acl/mighty.git
 cd mighty/docker
 ```
 
@@ -180,7 +178,7 @@ Open Docker Desktop and go to **Settings** (gear icon). Two settings must be cha
 #### Building
 
 ```bash
-git clone https://github.com/mit-acl/mighty.git
+git clone --depth 1 https://github.com/mit-acl/mighty.git
 cd mighty/docker
 make build
 ```
